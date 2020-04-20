@@ -159,12 +159,11 @@ async def nextPhase(g):
             pass
         else:
             #change the guard
-            try:
-                member = guild.get_member(int(highest))
+            member = guild.get_member(int(highest))
+            if g.current_pres:
                 oldpres = guild.get_member(int(g.current_pres))
-            except:
-                member = await client.fetch_user(highest)
-                oldpres = await client.fetch_user(g.current_pres)
+            else:
+                oldpres = None
             try:
                 presrole = guild.get_role(int(g.presidentRole))
                 await member.add_roles(presrole)
@@ -547,4 +546,4 @@ async def clock():
 
 if __name__ == '__main__':
     client.loop.create_task(clock())
-    client.run()
+    client.run('')
