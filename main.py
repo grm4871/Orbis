@@ -6,6 +6,7 @@ import emoji
 import asyncio
 import jsonsave
 import random
+import webcolors
 
 
 #emoji library stuff
@@ -27,7 +28,7 @@ async def nextPhase(g):
             for party in g.parties:
                 if c in party.members:
                     try:
-                        member = guild.get_member(c)
+                        member = guild.get_member(int(c))
                         if party.name in candidatePairs: candidatePairs[party.name].append(c)
                         else: candidatePairs[party.name] = [c]
                     except:
@@ -35,7 +36,7 @@ async def nextPhase(g):
         #create and send each primary message
         for party in candidatePairs:
             c = {}
-            s = party + ' Primary: \n'
+            s = "`" + party + '` Primary: \n'
             for candidate in candidatePairs[party]:
                 #pick an unused emoji
                 while(True):
@@ -43,7 +44,7 @@ async def nextPhase(g):
                     if not e in c.values():
                         c[candidate] = e
                         break
-                member = guild.get_member(candidate)
+                member = guild.get_member(int(candidate))
                 s += member.mention + ' ' + c[candidate] + '\n'
             m = await channel.send(s)
             for cand in c:
@@ -58,35 +59,35 @@ async def nextPhase(g):
                     pass
                 g.parties.remove(party)
         if g.candidates == []:
-            g.phase = -1
             await channel.send("No candidates to run primary with!")
 
     #end primary
     elif g.phase == 1:
         newCandidates = []
         for primary in g.electionMessage:
-            msg = await channel.fetch_message(primary[0])
-            results = {}
-            for reaction in msg.reactions:
-                if str(reaction.emoji) in primary[1].values():
-                    for key in primary[1]:
-                        if primary[1][key] == str(reaction.emoji):
-                            candidate = key
-                    results[candidate] = reaction.count
-            highest = None
-            for candidate in results:
-                if member_exists(candidate, guild):
-                    if highest == None:
-                        highest = candidate
-                    elif results[highest] < results[candidate]:
-                        highest = candidate
-                    elif results[highest] == results[candidate]:
-                        if random.randint(1,2) == 2:
+            try:
+                msg = await channel.fetch_message(primary[0])
+                results = {}
+                for reaction in msg.reactions:
+                    if str(reaction.emoji) in primary[1].values():
+                        for key in primary[1]:
+                            if primary[1][key] == str(reaction.emoji):
+                                candidate = key
+                        results[candidate] = reaction.count
+                highest = None
+                for candidate in results:
+                    if member_exists(candidate, guild):
+                        if highest == None:
                             highest = candidate
-            if highest is not None:
-                member = guild.get_member(highest)
-            newCandidates.append(member.id)
-            await msg.delete()
+                        elif results[highest] < results[candidate]:
+                            highest = candidate
+                        elif results[highest] == results[candidate]:
+                            if random.randint(1,2) == 2:
+                                highest = candidate
+                newCandidates.append(highest)
+                await msg.delete()
+            except:
+                pass
         g.candidates = newCandidates
 
         #print winners
@@ -98,18 +99,18 @@ async def nextPhase(g):
             if num > 8:
                 idx+=1
                 outputs.append("")
-            outputs[idx] += "`" + guild.get_member(c).name + "`\n"
+            try:
+                outputs[idx] += "`" + guild.get_member(int(c)).name + "`\n"
+            except:
+                user = await client.fetch_user(c)
+                outputs[idx] += "`" + user.name + "`\n"
             num+=1
         for m in outputs:
             if m == "Winning candidates:":
                 await channel.send("Primary finished with zero candidates.")
-                await channel.send("Back to primary phase...")
+                await channel.send("The current President will remain in power.")
             else:
                 await channel.send(m)
-
-
-        if g.candidates == []:
-            g.phase = 3
 
     #election
     elif g.phase == 2:
@@ -123,7 +124,7 @@ async def nextPhase(g):
                     if not e in c.values():
                         c[candidate] = e
                         break
-                member = guild.get_member(candidate)
+                member = guild.get_member(int(candidate))
                 s += member.mention + ' ' + c[candidate] + '\n'
             except:
                 pass
@@ -154,16 +155,21 @@ async def nextPhase(g):
                         highest = candidate
         if highest == None:
             #keep sitting pres
+            await channel.send("A president could not be chosen.")
             pass
         else:
             #change the guard
-            member = guild.get_member(highest)
-            oldpres = guild.get_member(g.current_pres)
-            presrole = guild.get_role(g.presidentRole)
             try:
+                member = guild.get_member(int(highest))
+                oldpres = guild.get_member(int(g.current_pres))
+            except:
+                member = await client.fetch_user(highest)
+                oldpres = await client.fetch_user(g.current_pres)
+            try:
+                presrole = guild.get_role(int(g.presidentRole))
                 await member.add_roles(presrole)
             except:
-                presrole = await message.guild.create_role(name="President",color=discord.Color.gold(),hoist=True)
+                presrole = await guild.create_role(name="President",color=discord.Color.gold(),hoist=True)
                 g.presidentRole = presrole.id
                 await member.add_roles(presrole)
             if oldpres:
@@ -173,8 +179,7 @@ async def nextPhase(g):
         await msg.delete()
         g.candidates = []
         g.phase = -1
-    if g.phase == 3:
-        g.phase = -1
+
     g.phase += 1
     global GUILDS
     save_guilds(GUILDS)
@@ -182,22 +187,26 @@ async def nextPhase(g):
 #classes & definitions
 class Guild():
     def __init__(self, server, parties=[], current_pres=None, current_vice=None, 
-                candidates=[], phase=0, electionMessage=None, electionTime=None,
+                candidates=[], phase=0, electionMessage=None, settings={"autoelections":False},
                 electionChannel=None, presidentRole=None):
-        self.server = server
+
+        self.server = int(server)
         self.parties = []
         for p in parties:
             self.parties.append(Party(p[0],p[1],p[2],p[3],p[4]))
-        self.current_pres = None
-        self.current_vice = None
+        self.current_pres = current_pres
+        self.current_vice = current_vice
 
         #election
         self.candidates = candidates
-        self.phase = 0 #0, 1, 2, 3
-        self.electionMessage = None #message id or array of message ids
-        self.electionTime = electionTime
-        if electionTime == None:
-            self.electionTime = time.time() + 86400
+        self.phase = phase #0, 1, 2, 3
+        self.electionMessage = electionMessage #message id or array of message ids
+
+        if type(settings) is not dict:
+            settings={"autoelections":False}
+        self.settings = settings
+
+
         self.electionChannel = electionChannel
         self.presidentRole = presidentRole
 
@@ -230,7 +239,7 @@ class Guild():
         data.append(self.candidates)
         data.append(self.phase)
         data.append(self.electionMessage)
-        data.append(self.electionTime)
+        data.append(self.settings)
         data.append(self.electionChannel)
         data.append(self.presidentRole)
         return data
@@ -265,7 +274,7 @@ def fetch_guild(id):
 
 def member_exists(member, guild):
     try:
-        m = guild.get_member(member)
+        m = guild.get_member(int(member))
         return True
     except:
         return False
@@ -318,18 +327,66 @@ async def on_message(message):
     #check if server is a nation
     if server_registered(message.guild.id):
         g = server_registered(message.guild.id)
+        if message.content.startswith('!parties'):
+            outputs = []
+            idx = 0
+            num = 0
+            outputs.append("")
+            for party in g.parties:
+                if num > 8:
+                    idx+=1
+                    num=0
+                    outputs.append("")
+                outputs[idx] += "`!joinparty " + party.name + "`\n"
+                num+=1
+            for m in outputs:
+                if m == "":
+                    await message.channel.send("There are no parties!")
+                else:
+                    await message.channel.send(m)
+
+        if message.content.startswith('!candidates'):
+            outputs = []
+            idx = 0
+            num = 0
+            outputs.append("")
+            for c in g.candidates:
+                if num > 8:
+                    idx+=1
+                    num=0
+                    outputs.append("")
+                outputs[idx] += "`" + message.guild.get_member(int(c)).name + "`\n"
+                num+=1
+            for m in outputs:
+                if m == "":
+                    await message.channel.send("No candidates!")
+                else:
+                    await message.channel.send(m)
+
+        if message.content.startswith('!help'):
+                    await message.channel.send(
+                        """Commands: 
+                        !createparty - creates a party
+                        !joinparty - joins a party
+                        !parties - lists the parties
+                        !runforoffice - adds you to the list of candidates
+                        !candidates - lists all candidates""")
+
+    if server_registered(message.guild.id):# and not (message.author.id == message.guild.owner.id):
+        g = server_registered(message.guild.id)
 
         #create party
         if message.content.startswith("!createparty"):
             guild = message.guild
             args = message.content.split('-')
-            if len(args) != 5:
-                await message.channel.send('Usage: !createparty-partyname-red-green-blue, red green and blue being between 0 and 255')
+            if len(args) != 3:
+                await message.channel.send('Usage: !createparty-partyname-color')
             else:
+
+                #leave old party
                 oldparty = None
                 for party in g.parties:
                     partyrole = guild.get_role(party.role)
-
                     if partyrole in message.author.roles:
                         await message.author.remove_roles(partyrole)
                         oldparty = party
@@ -342,10 +399,55 @@ async def on_message(message):
                         partyrole = guild.get_role(oldparty.role)
                         await partyrole.delete()
                         g.parties.remove(oldparty)
-                role = await message.guild.create_role(name=args[1],color=discord.Color.from_rgb(int(args[2]),int(args[3]),int(args[4])),hoist=True)
-                await message.author.add_roles(role)
-                g.parties.append(Party(args[1],(int(args[2]),int(args[3]),int(args[4])),[message.author.id],role.id,""))
-                await message.channel.send('Party created successfully')
+
+                #check if name exists
+
+                name = args[1]
+                party = None
+                for p in g.parties:
+                    if p.name == name:
+                        party = p
+                if not party:
+
+                    #get color
+                    try:
+                        color = webcolors.name_to_hex(args[2], spec='css3')[1:]
+                    except:
+                        try:
+                            color = args[2][1:]
+                            test = webcolors.hex_to_rgb("#" + color)
+                        except:
+                            await message.channel.send('Could not create party')
+                            return
+                    role = await message.guild.create_role(name=args[1],color=discord.Color(int(color,16)),hoist=True)
+                    await message.author.add_roles(role)
+                    colorrgb = webcolors.hex_to_rgb("#" + color)
+                    g.parties.append(Party(args[1],(colorrgb[0],colorrgb[1],colorrgb[2]),[message.author.id],role.id,""))
+                    await message.channel.send('Party created successfully')
+
+                else:
+                    await message.channel.send("That party already exists!")
+            save_guilds(GUILDS)
+
+        if message.content.startswith('!leaveparty'):
+            guild = message.guild
+            oldparty = None
+            for party in g.parties:
+                partyrole = guild.get_role(party.role)
+                if partyrole in message.author.roles:
+                    await message.author.remove_roles(partyrole)
+                    oldparty = party
+                    try:
+                        oldparty.members.remove(message.author.id)
+                    except:
+                        pass
+            if oldparty:
+                if oldparty.members == []:
+                    partyrole = guild.get_role(oldparty.role)
+                    await partyrole.delete()
+                    g.parties.remove(oldparty)
+
+            await message.channel.send("Successfully left party")
             save_guilds(GUILDS)
 
         #join party
@@ -358,10 +460,8 @@ async def on_message(message):
                 name = message.content[11:]
                 party = None
                 for p in g.parties:
-                    print(p.role)
                     if p.name == name:
                         party = p
-                print(party.role)
                 if party:
                     party.members.append(message.author.id)
                     #find old party
@@ -380,7 +480,6 @@ async def on_message(message):
                             partyrole = guild.get_role(oldparty.role)
                             await partyrole.delete()
                             g.parties.remove(oldparty)
-                    print(party.role)
                     partyrole = guild.get_role(party.role)
                     try:
                         await message.author.add_roles(partyrole)
@@ -393,41 +492,8 @@ async def on_message(message):
                     await message.channel.send('This party doesn\'t exist!')
             save_guilds(GUILDS)
 
-        if message.content.startswith('!parties'):
-            outputs = []
-            idx = 0
-            num = 0
-            outputs.append("")
-            for party in g.parties:
-                if num > 8:
-                    idx+=1
-                    outputs.append("")
-                outputs[idx] += "`!joinparty " + party.name + "`\n"
-                num+=1
-            for m in outputs:
-                if m == "":
-                    await message.channel.send("There are no parties!")
-                else:
-                    await message.channel.send(m)
 
-        if message.content.startswith('!candidates'):
-            outputs = []
-            idx = 0
-            num = 0
-            outputs.append("")
-            for c in g.candidates:
-                if num > 8:
-                    idx+=1
-                    outputs.append("")
-                outputs[idx] += "`" + message.guild.get_member(c).name + "`\n"
-                num+=1
-            for m in outputs:
-                if m == "":
-                    await message.channel.send("No candidates!")
-                else:
-                    await message.channel.send(m)
-
-        if message.content.startswith('!runforoffice'):
+        if message.content.startswith('!runforoffice') and g.phase == 0:
             inParty = False
             for party in g.parties:
                 if message.author.id in party.members:
@@ -440,38 +506,45 @@ async def on_message(message):
                 await message.channel.send("Join a party first!")
             else:
                 await message.channel.send("You are already a candidate!")
+        elif message.content.startswith('!runforoffice'):
+            await message.channel.send("Candidates are already locked in for this election!")
 
-        if message.content.startswith('!help'):
-            await message.channel.send(
-                """Commands: 
-                !createparty - creates a party
-                !joinparty - joins a party
-                !parties - lists the parties
-                !runforoffice - adds you to the list of candidates
-                !candidates - lists all candidates""")
+    if message.author.id == message.guild.owner.id:
+        g = server_registered(message.guild.id)
+        if message.content.startswith('!forceelection'):
+            await nextPhase(g)
 
-        if message.author.id == message.guild.owner.id:
-            if message.content.startswith('!forceelection'):
-                await nextPhase(g)
+        if message.content.startswith('!resetelection'):
+            g.phase = 0
+            save_guilds(GUILDS)
 
+        if message.content.startswith('!electionstate'):
+            await message.channel.send(g.phase)
+
+        if message.content.startswith('!autoelections'):
+            g.settings["autoelections"] = not g.settings["autoelections"]
+            if g.settings["autoelections"]: await message.channel.send("Automatic elections on!")
+            else: await message.channel.send("Automatic elections off!")
+            save_guilds(GUILDS)
 
 print("started! uwu")
 
 
 
-#clock that tests for election events
+#clock that tests for election times (wednesday/saturday 8pm)
+days = {0:2,1:3,2:5,3:6}
 async def clock():
     await client.wait_until_ready()
     while(True):
         await asyncio.sleep(5)
         global GUILDS
         for guild in GUILDS:
-            if guild.electionTime < time.time():
-                await nextPhase(guild)
-                #todo check for dead president TODO
+            if datetime.now().hour > 20 and guild.settings["autoelections"]:
+                if days[guild.phase] == datetime.now().weekday():
+                    await nextPhase(guild)
 
 #main function, just for threading stuff
 
 if __name__ == '__main__':
-    #client.loop.create_task(clock())
-    client.run('MjUzNzE1NzQyMTg3MzIzNDA0.XaknFQ.hfmLsk_qqSwvjY27NxLvDCuo8zA')
+    client.loop.create_task(clock())
+    client.run()
