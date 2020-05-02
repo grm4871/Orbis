@@ -31,3 +31,21 @@ def load_list(filename):
         with open(filename, 'w+') as file:
             file.write(json.dumps([]))
         return []
+
+def save_dict(dict,filename):
+    """
+    Saves dict to filename
+    """
+    file.write(json.dumps(dict))
+
+def load_dict(filename):
+    """
+    Returns newly created dict from filename
+    """
+    try:
+        with open(filename, 'r') as file:
+            return json.loads(file.read())
+    except:
+        with open(filename, 'w+') as file:
+            file.write(json.dumps({}))
+        return {}
