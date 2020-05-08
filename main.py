@@ -310,10 +310,7 @@ async def on_message(message):
                         !runforoffice - adds you to the list of candidates
                         !candidates - lists all candidates
                         !ownerhelp - lists all server owner commands""")
-
-    if server_registered(message.guild.id):# and not (message.author.id == message.guild.owner.id):
-        g = server_registered(message.guild.id)
-
+                    
         #create party
         if message.content.startswith("!createparty"):
             guild = message.guild
