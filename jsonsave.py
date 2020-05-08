@@ -36,7 +36,8 @@ def save_dict(dict,filename):
     """
     Saves dict to filename
     """
-    file.write(json.dumps(dict))
+    with open(filename, 'w+') as file:
+        file.write(json.dumps(dict))
 
 def load_dict(filename):
     """

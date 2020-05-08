@@ -29,7 +29,6 @@ async def nextPhase(g, client):
             for party in g.parties:
                 if c in party.members:
                     try:
-                        member = guild.get_member(int(c))
                         if party.name in candidatePairs: candidatePairs[party.name].append(c)
                         else: candidatePairs[party.name] = [c]
                     except:
@@ -39,15 +38,15 @@ async def nextPhase(g, client):
             c = {}
             s = "`" + party + '` Primary: \n'
             for candidate in candidatePairs[party]:
-                #pick an unused emoji
-                while(True):
-                    e = random.choice(list(emojis))
-                    if not e in c.values():
-                        c[candidate] = e
-                        break
                 member = guild.get_member(int(candidate))
                 try:
                     s += member.mention + ' ' + c[candidate] + '\n'
+                    #pick an unused emoji
+                    while(True):
+                        e = random.choice(list(emojis))
+                        if not e in c.values():
+                            c[candidate] = e
+                            break
                 except:
                     pass
             m = await channel.send(s)
@@ -104,11 +103,10 @@ async def nextPhase(g, client):
                 idx+=1
                 outputs.append("")
             try:
-                outputs[idx] += "`" + guild.get_member(int(c)).name + "`\n"
-            except:
-                user = await client.fetch_user(c)
-                outputs[idx] += "`" + user.name + "`\n"
-            num+=1
+                if c:
+                    outputs[idx] += "`" + guild.get_member(int(c)).name + "`\n"
+                    num+=1
+            except: pass
         for m in outputs:
             if m == "Winning candidates:\n":
                 await channel.send("Primary finished with zero candidates.")
@@ -235,6 +233,7 @@ def load_guilds():
 
 GUILDS = load_guilds()
 MEMBERS = load_members()
+print(MEMBERS)
 #run
 client = discord.Client()
 
@@ -243,6 +242,7 @@ client = discord.Client()
 @client.event
 async def on_message(message):
     global GUILDS
+    global MEMBERS
     if message.author == client.user:
         return
     
@@ -290,7 +290,10 @@ async def on_message(message):
                     idx+=1
                     num=0
                     outputs.append("")
-                outputs[idx] += "`" + message.guild.get_member(int(c)).name + "`\n"
+                try:
+                    outputs[idx] += "`" + message.guild.get_member(int(c)).name + "`\n"
+                except:
+                    pass
                 num+=1
             for m in outputs:
                 if m == "":
@@ -448,40 +451,43 @@ async def on_message(message):
 
         if message.content.startswith('!gold'):
             t = 0
-            if message.author.id in MEMBERS:
-                if "Gtime" in MEMBERS[message.author.id]:
-                    t = MEMBERS[message.author.id]["Gtime"]
+            if str(message.guild.id) in MEMBERS:
+                if "Gtime" in MEMBERS[str(message.guild.id)]:
+                    t = MEMBERS[str(message.guild.id)]["Gtime"]
             if time.time() - (20*60*60) > t: 
                 gold = 1
                 #add gold to the member's inventory
                 if "tax" in g.settings:
                     gold = round(1 - g.settings["tax"],2)
-                if message.author.id in MEMBERS:
-                    if "G" in MEMBERS[message.author.id]:
-                        MEMBERS[message.author.id]["G"] += gold
+                if str(message.author.id) in MEMBERS:
+                    if "G" in MEMBERS[str(message.author.id)]:
+                        MEMBERS[str(message.author.id)]["G"] += gold
+                        print(MEMBERS[str(message.author.id)]["G"])
                     else:
-                        MEMBERS[message.author.id]["G"] = gold
+                        print("hi")
+                        MEMBERS[str(message.author.id)]["G"] = gold
                 else:
-                    MEMBERS[message.author.id] = {"G":gold}
+                    print("here")
+                    MEMBERS[str(message.author.id)] = {"G":gold}
                 await message.channel.send("Earned " + str(gold) + " gold!")
-                MEMBERS[message.author.id]["Gtime"] = time.time()
+                MEMBERS[str(message.author.id)]["Gtime"] = time.time()
                 #add taxed gold to the nation's inventory
                 if gold != 1:
-                    if message.guild.id in MEMBERS:
-                        if "G" in MEMBERS[message.guild.id]:
-                            MEMBERS[message.guild.id]["G"] += round(g.settings["tax"],2)
+                    if str(message.guild.id) in MEMBERS:
+                        if "G" in MEMBERS[str(message.guild.id)]:
+                            MEMBERS[str(message.guild.id)]["G"] += round(g.settings["tax"],2)
                         else:
-                            MEMBERS[message.guild.id]["G"] = round(g.settings["tax"],2)
+                            MEMBERS[str(message.guild.id)]["G"] = round(g.settings["tax"],2)
                     else:
-                        MEMBERS[message.guild.id] = {"G":round(g.settings["tax"],2)}
+                        MEMBERS[str(message.guild.id)] = {"G":round(g.settings["tax"],2)}
             else:
                 await message.channel.send("You can only collect gold once a day!")
             save_members(MEMBERS)
 
         if message.content.startswith("!bal"):
-            if message.author.id in MEMBERS:
-                if "G" in MEMBERS[message.author.id]:
-                    await message.channel.send("You have " + str(MEMBERS[message.author.id]["G"]) + " gold!") 
+            if str(message.author.id) in MEMBERS:
+                if "G" in MEMBERS[str(message.author.id)]:
+                    await message.channel.send("You have " + str(MEMBERS[str(message.author.id)]["G"]) + " gold!") 
                 else:
                     await message.channel.send("You don't have any gold!")
             else:
@@ -575,6 +581,32 @@ async def on_message(message):
                 await message.channel.send('Party deleted successfully!')
             else:
                 await message.channel.send('Party not found')
+
+        #currently broken
+        if message.content.startswith('!setpresident'):
+                guild = message.guild
+            #try:
+                member = guild.get_member_named(message.content.split(" ")[1])
+                if g.current_pres:
+                    oldpres = guild.get_member(int(g.current_pres))
+                else:
+                    oldpres = None
+                try:
+                    presrole = guild.get_role(int(g.presidentRole))
+                    await member.add_roles(presrole)
+                except:
+                    presrole = await guild.create_role(name="President",color=discord.Color.gold(),hoist=True)
+                    g.presidentRole = presrole.id
+                    await member.add_roles(presrole)
+                if oldpres:
+                    await oldpres.remove_roles(presrole)
+                g.current_pres = highest
+                await message.channel.send("Your new president is: " + member.mention)
+            #except:
+                #await message.channel.send("Usage: !setpresident member")
+
+
+
 
 print("started! uwu")
 
