@@ -409,7 +409,7 @@ def load():
         for line in f.readlines():
             if not line[0] == "#":
                 spl = line.split('"')
-                armor[spl[1]] = append(Armor(spl[1], spl[3], spl[5], spl[7], "shoes"))
+                armor[spl[1]] = (Armor(spl[1], spl[3], spl[5], spl[7], "shoes"))
 
     #monsters
     monsters = {}
