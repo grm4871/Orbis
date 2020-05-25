@@ -1,0 +1,3 @@
+#Name, durability, attributes, damage, speed, armor penetration, range
+#
+"Wooden Sword" "10" "" "1" ".5" "0" "2"

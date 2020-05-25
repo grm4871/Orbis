@@ -9,6 +9,9 @@ import random
 import webcolors
 from guilds import Party
 from guilds import Guild
+import guilds
+import _pickle as pickle
+import rpg
 
 #emoji library stuff
 emojis = []
@@ -16,9 +19,15 @@ with open('emojis.txt', encoding='utf-8-sig') as f:
     for line in f.readlines():
         emojis.append(line[0])
 
+
+"""
+Takes a guild and advances it to the next phase of its election.
+Horribly complicated and has a lot of issues. Rewriting is probably a good idea.
+I'd move this out of the main file but that seems to break it for some discord library reasons
+"""
 async def nextPhase(g, client):
-    guild = client.get_guild(g.server)
-    channel = guild.get_channel(g.electionChannel)
+    guild = client.get_guild(int(g.server))
+    channel = guild.get_channel(int(g.electionChannel))
 
     #primary
     if g.phase == 0:
@@ -173,7 +182,7 @@ async def nextPhase(g, client):
                 presrole = await guild.create_role(name="President",color=discord.Color.gold(),hoist=True)
                 g.presidentRole = presrole.id
                 await member.add_roles(presrole)
-            if oldpres:
+            if oldpres and oldpres != member.id:
                 await oldpres.remove_roles(presrole)
             g.current_pres = highest
             await channel.send("Your new president is: " + member.mention)
@@ -186,10 +195,13 @@ async def nextPhase(g, client):
     save_guilds(GUILDS)
 
 #per-instance bot state
-GUILDS = [] 
-MEMBERS = {} #dictionary: key= member id, value= inventory dict
+GUILDS = []
+rpginstance = rpg.load()
 
 #helper functions
+"""
+gets a guild (object) by id
+"""
 def fetch_guild(id):
     global GUILDS
     for guild in GUILDS:
@@ -197,6 +209,10 @@ def fetch_guild(id):
             return guild
     return None
 
+
+"""
+checks if a member is in a guild (discord)
+"""
 def member_exists(member, guild):
     try:
         m = guild.get_member(int(member))
@@ -204,6 +220,9 @@ def member_exists(member, guild):
     except:
         return False
 
+"""
+checks if a server is a registered orbis guild
+"""
 def server_registered(id):
     global GUILDS
     for guild in GUILDS:
@@ -211,29 +230,39 @@ def server_registered(id):
             return guild
     return False
 
-#save members
-def save_members(members):
-    jsonsave.save_dict(members, "data/members.txt")
-
-def load_members():
-    return jsonsave.load_dict("data/members.txt")
-
 #save guilds
 def save_guilds(guilds):
-    jsonsave.save_list(guilds, "data/guilds.txt")
+    with open("data/guilds.txt", "wb") as f:
+        pickle.dump(guilds, f, -1)
 
 #load guilds
 def load_guilds():
-    loads = jsonsave.load_list("data/guilds.txt")
-    GUILDS = []
-    for guild in loads:
-        GUILDS.append(Guild(guild[0],guild[1],guild[2],guild[3],guild[4],
-                            guild[5],guild[6],guild[7],guild[8],guild[9]))
-    return GUILDS
+    with open("data/guilds.txt", "rb") as f:
+        return pickle.load(f)
 
-GUILDS = load_guilds()
-MEMBERS = load_members()
-print(MEMBERS)
+#saves the rpg instance with pickle
+def save_rpg(rpginstance):
+    with open("data/rpginstance.txt", "wb") as f:
+        pickle.dump(rpginstance, f, -1)
+
+#loads the rpg instance with pickle
+def load_rpg():
+    with open("data/rpginstance.txt", "rb") as f:
+        return pickle.load(f)
+
+try:
+    r = load_rpg()
+    if r:
+        rpginstance.players = r.players
+        rpginstance.healthtime = r.healthtime
+except:
+    pass
+
+try:
+    GUILDS = load_guilds()
+except:
+    pass
+
 #run
 client = discord.Client()
 
@@ -241,27 +270,163 @@ client = discord.Client()
 #commands
 @client.event
 async def on_message(message):
-    global GUILDS
-    global MEMBERS
+    global GUILDS #list of guilds
+    global rpginstance #all rpg state is contained in this class
+
+    #ignore self
     if message.author == client.user:
         return
     
     #ping command
     if message.content == "!ping":
-        await message.channel.send("pong! uwu")
+        await message.channel.send("pong!")
 
-
-    if message.content.startswith("!registerserver"):
+    #makes a Guild object for the server (serverowner only)
+    if message.content == "!registerserver" and message.author == message.guild.owner:
         if(fetch_guild(message.guild.id) == None):
             presrole = await message.guild.create_role(name="President",color=discord.Color.gold(),hoist=True)
             GUILDS.append(Guild(message.guild.id, electionChannel=message.channel.id, presidentRole=presrole.id))
             await message.channel.send("Guild registered!")
             save_guilds(GUILDS)
 
+    #creates a guild object for servers that aren't meant to participate in the map game (upcoming)
+    if message.content.startswith("!registerservernonation"):
+        GUILDS.append(Guild(message.guild.id, nation=False))
+        print("registered")
 
+    """
+    RPG COMMANDS
+    """
+    #at some point this should be an actual help message
+    if message.content.startswith("?help") or message.content == "?h":
+        await message.channel.send("```RPG module is a work in progress. Please be patient.```")
+
+    #shows your inventory
+    if message.content.startswith("?inventory") or message.content == "?i":
+        await message.channel.send(f"```{rpginstance.fetchplayer(message.author.id, message.author.name).showinventory()}```")
+        save_rpg(rpginstance)
+
+    #shows your rpg stats / equipment
+    if message.content.startswith("?stats") or message.content == "?s":
+        await message.channel.send(f"```{rpginstance.fetchplayer(message.author.id, message.author.name).showstats()}```")
+        save_rpg(rpginstance)
+
+    #shows your current area
+    if message.content == "?area":
+        await message.channel.send("You are in: `" + rpginstance.fetchplayer(message.author.id, message.author.name).showarea() + "`")
+        save_rpg(rpginstance)
+
+    #trigers a battle with a random monster from your current area
+    if message.content.startswith("?adventure") or message.content == "?a":
+        player = rpginstance.fetchplayer(message.author.id, message.author.name)
+        if player.health > 0:
+            await message.channel.send("```" + rpginstance.battle(player) + "```")
+        else:
+            await message.channel.send("You are tired and need to rest!")
+        save_rpg(rpginstance)
+
+
+    #equips an item (weapon/armor) from your inventory
+    if message.content.startswith("?equip"):
+        itemname = message.content[7:]
+        player = rpginstance.fetchplayer(message.author.id, message.author.name)
+        if rpginstance.equip(player, itemname):
+            await message.channel.send(f"Equipped `{itemname}`!")
+        else:
+            await message.channel.send(f"Failed to equip `{itemname}`")
+
+    #debug command please remove
+    if message.content.startswith("?cheat12345"):
+        player = rpginstance.fetchplayer(message.author.id, message.author.name)
+        player.health = 10000
+        player.maxhealth = 10000
+        await message.channel.send("cheater")
+
+    #lists all rpg areas
+    if message.content.startswith("?areas"):
+        await message.channel.send(rpginstance.showareas())
+
+    #travel to a different rpg area
+    if message.content.startswith("?travel"):
+        areaname = message.content[8:]
+        player = rpginstance.fetchplayer(message.author.id, message.author.name)
+        if areaname in rpginstance.areas:
+            area = rpginstance.areas[areaname]
+            if player.level >= area.requiredLevel:
+                player.area = area
+                await message.channel.send("You are now in: `" + rpginstance.fetchplayer(message.author.id, message.author.name).showarea() + "`")
+            else:
+                await message.channel.send("Your level isn't high enough for that area!")
+        else:
+            await message.channel.send("Travel failed.")
+
+    #creates an rpg item listing on the market
+    if message.content.startswith("?sell"):
+        args = message.content.split("-") #itemname, quant, unitprice
+        if len(args) != 4:
+            await message.channel.send("Usage: ?sell-item-quantity-price (per unit)")
+        else:
+            itemname = args[1]
+            quant = int(args[2])
+            unitprice = float(args[3])
+            player = rpginstance.fetchplayer(message.author.id, message.author.name)
+            if itemname in player.inventory:
+                g = server_registered(message.guild.id)
+                if player.inventory[itemname][1] >= quant and player.inventory[itemname][0].durability == player.inventory[itemname][0].maxdurability:
+                    player.deacquire(rpginstance.finditem(itemname), quant)
+                    g.addlisting(guilds.Listing(rpginstance.finditem(itemname), quant, unitprice, player))
+                    await message.channel.send("Listing posted.")
+                    save_guilds(GUILDS)
+                else:
+                    await message.channel.send("You can't sell what you don't have!")
+            elif unitprice < 0.00001 or unitprice > 99999999999:
+                await message.channel.send("Bad price")
+            else:
+                await message.channel.send("You can't sell what you don't have!")
+
+    #shows a context menu for buying rpg items from the market
+    if message.content.startswith("?buy"):
+        g = server_registered(message.guild.id)
+        if message.content.startswith("?buy-"):
+            args = message.content.split("-")
+            if len(args) == 3:
+                name = args[1]
+                number = args[2]
+                if name in g.listings:
+                    player = rpginstance.fetchplayer(message.author.id, message.author.name)
+                    listing = g.listings[name][int(number)]
+                    if listing.author == player or player.gold >= listing.totalprice:
+                        if player.acquire(listing.item, listing.quantity):
+                            await message.channel.send(f"`{player.name} gained {listing.item.name}`\n")
+                            g.listings[name].remove(listing)
+                            if listing.author != player:
+                                player.gold -= listing.totalprice
+                                listing.author.gold += listing.totalprice
+                            save_guilds(GUILDS)
+                        else:
+                            await message.channel.send("Your inventory isn't big enough!")
+                    else:
+                        await message.channel.send("You don't have the money for that!")
+        else: #view listings
+            name = message.content[5:]
+            output = "```\n--Listings--\n"
+            if name in g.listings:
+                for i, listing in enumerate(g.listings[name]):
+                    output += f"{i}: {listing.show()}"
+                output += f"```To buy a listing, do ?buy-{name}-#"
+                await message.channel.send(output)
+            else:
+                await message.channel.send("That's not for sale here!")
+
+
+    """
+    NATIONSERVER COMMANDS
+    """
     #check if server is a nation
     if server_registered(message.guild.id):
         g = server_registered(message.guild.id)
+
+        #lists the guild's parties
         if message.content.startswith('!parties'):
             outputs = []
             idx = 0
@@ -280,6 +445,7 @@ async def on_message(message):
                 else:
                     await message.channel.send(m)
 
+        #lists the guild's candidates
         if message.content.startswith('!candidates'):
             outputs = []
             idx = 0
@@ -301,6 +467,7 @@ async def on_message(message):
                 else:
                     await message.channel.send(m)
 
+        #sends a help message
         if message.content.startswith('!help'):
                     await message.channel.send(
                         """Commands: 
@@ -310,7 +477,7 @@ async def on_message(message):
                         !runforoffice - adds you to the list of candidates
                         !candidates - lists all candidates
                         !ownerhelp - lists all server owner commands""")
-                    
+
         #create party
         if message.content.startswith("!createparty"):
             guild = message.guild
@@ -365,6 +532,7 @@ async def on_message(message):
                     await message.channel.send("That party already exists!")
             save_guilds(GUILDS)
 
+        #leaves your political party
         if message.content.startswith('!leaveparty'):
             guild = message.guild
             oldparty = None
@@ -386,7 +554,7 @@ async def on_message(message):
             await message.channel.send("Successfully left party")
             save_guilds(GUILDS)
 
-        #join party
+        #join political party
         if message.content.startswith('!joinparty'):
             guild = message.guild
             args = message.content.split(' ')
@@ -429,6 +597,7 @@ async def on_message(message):
             save_guilds(GUILDS)
 
 
+        #adds you to the list of presidential candidates
         if message.content.startswith('!runforoffice') and g.phase == 0:
             inParty = False
             for party in g.parties:
@@ -445,171 +614,104 @@ async def on_message(message):
         elif message.content.startswith('!runforoffice'):
             await message.channel.send("Candidates are already locked in for this election!")
 
-
-        if message.content.startswith('!gold'):
-            t = 0
-            if str(message.guild.id) in MEMBERS:
-                if "Gtime" in MEMBERS[str(message.guild.id)]:
-                    t = MEMBERS[str(message.guild.id)]["Gtime"]
-            if time.time() - (20*60*60) > t: 
-                gold = 1
-                #add gold to the member's inventory
-                if "tax" in g.settings:
-                    gold = round(1 - g.settings["tax"],2)
-                if str(message.author.id) in MEMBERS:
-                    if "G" in MEMBERS[str(message.author.id)]:
-                        MEMBERS[str(message.author.id)]["G"] += gold
-                        print(MEMBERS[str(message.author.id)]["G"])
-                    else:
-                        print("hi")
-                        MEMBERS[str(message.author.id)]["G"] = gold
-                else:
-                    print("here")
-                    MEMBERS[str(message.author.id)] = {"G":gold}
-                await message.channel.send("Earned " + str(gold) + " gold!")
-                MEMBERS[str(message.author.id)]["Gtime"] = time.time()
-                #add taxed gold to the nation's inventory
-                if gold != 1:
-                    if str(message.guild.id) in MEMBERS:
-                        if "G" in MEMBERS[str(message.guild.id)]:
-                            MEMBERS[str(message.guild.id)]["G"] += round(g.settings["tax"],2)
-                        else:
-                            MEMBERS[str(message.guild.id)]["G"] = round(g.settings["tax"],2)
-                    else:
-                        MEMBERS[str(message.guild.id)] = {"G":round(g.settings["tax"],2)}
-            else:
-                await message.channel.send("You can only collect gold once a day!")
-            save_members(MEMBERS)
-
-        if message.content.startswith("!bal"):
-            if str(message.author.id) in MEMBERS:
-                if "G" in MEMBERS[str(message.author.id)]:
-                    await message.channel.send("You have " + str(MEMBERS[str(message.author.id)]["G"]) + " gold!") 
-                else:
-                    await message.channel.send("You don't have any gold!")
-            else:
-                await message.channel.send("You don't have any gold!")
-
-
         """
         PRESIDENT COMMANDS
         """
         if message.author.id == g.current_pres:
+            
             #preshelp
             if message.content.startswith("!preshelp"):
                 await message.channel.send(
                 """President-specific commands:
-                !nationbal: check your nation's gold reserves
-                !settax: set your nation's tax rate """)
+                there are none lol
+                 """)
 
+        """
+        GUILD OWNER COMMANDS
+        """
+        if message.author.id == message.guild.owner.id:
+            g = server_registered(message.guild.id)
 
-            #check country's gold
-            if message.content.startswith("!nationbal"):
-                if message.guild.id in MEMBERS:
-                    if "G" in MEMBERS[message.guild.id]:
-                        await message.channel.send("Your nation has " + str(MEMBERS[message.guild.id]["G"]) + " gold!") 
-                    else:
-                        await message.channel.send("Your nation doesn't have any gold!")
-                else:
-                    await message.channel.send("Your nation doesn't have any gold!")
+            #help command for guild owners
+            if message.content.startswith('!ownerhelp'):
+                await message.channel.send(
+                    """Owner/Debug commands:
+                    !forceelection: forces the next phase of the election cycle
+                    !resetelection: goes back to the pre-primary phase of the election cycle
+                    !electionstate: shows which state of the election cycle this server is in
+                    !autoelections: toggles automatic primaries/elections on wednesday and saturday
+                    !deleteparty: deletes a party""")
 
-
-            if message.content.startswith("!settax"):
-                args = message.content.split(" ");
-                if len(args) != 2:
-                    await message.channel.send("Usage: !settax percent (between 0 and 100)")
-                else:
-                    try:
-                        newtax = int(args[1])
-                        if newtax >= 0 and newtax <= 100:
-                            g.settings["tax"] = newtax * .01
-                            await message.channel.send("Tax rate set to " + str(newtax) + " percent!")
-                        else:
-                            await message.channel.send("Tax rate must be between 0 and 100 percent!")
-                    except:
-                        await message.channel.send("Usage: !settax percent (between 0 and 100)")
+            #forces the election cycle to the next phase
+            if message.content.startswith('!forceelection'):
+                await nextPhase(g, client)
                 save_guilds(GUILDS)
 
-    """
-    GUILD OWNER COMMANDS
-    """
-    if message.author.id == message.guild.owner.id:
-        g = server_registered(message.guild.id)
+            #resets the guild's election cycle
+            if message.content.startswith('!resetelection'):
+                g.phase = 0
+                save_guilds(GUILDS)
 
-        if message.content.startswith('!ownerhelp'):
-            await message.channel.send(
-                """Owner/Debug commands:
-                !forceelection: forces the next phase of the election cycle
-                !resetelection: goes back to the pre-primary phase of the election cycle
-                !electionstate: shows which state of the election cycle this server is in
-                !autoelections: toggles automatic primaries/elections on wednesday and saturday
-                !deleteparty: deletes a party""")
+            #prints the current election state (pre-primary, primary, pre-general, general)
+            if message.content.startswith('!electionstate'):
+                await message.channel.send(g.phase)
 
-        if message.content.startswith('!forceelection'):
-            await nextPhase(g, client)
-            save_guilds(GUILDS)
+            #toggles automatic elections (might be broken, i need to look into that)
+            if message.content.startswith('!autoelections'):
+                g.settings["autoelections"] = not g.settings["autoelections"]
+                if g.settings["autoelections"]: await message.channel.send("Automatic elections on!")
+                else: await message.channel.send("Automatic elections off!")
+                save_guilds(GUILDS)
 
-        if message.content.startswith('!resetelection'):
-            g.phase = 0
-            save_guilds(GUILDS)
-
-        if message.content.startswith('!electionstate'):
-            await message.channel.send(g.phase)
-
-        if message.content.startswith('!autoelections'):
-            g.settings["autoelections"] = not g.settings["autoelections"]
-            if g.settings["autoelections"]: await message.channel.send("Automatic elections on!")
-            else: await message.channel.send("Automatic elections off!")
-            save_guilds(GUILDS)
-
-        if message.content.startswith('!deleteparty'):
-            args = message.content.split(' ')
-            if len(args) < 2:
-                await message.channel.send('Usage: !deleteparty partyname')
-            name = message.content[13:]
-            party = None
-            for p in g.parties:
-                if p.name == name:
-                    party = p
-            if party:
-                partyrole = message.guild.get_role(party.role)
-                await partyrole.delete()
-                g.parties.remove(party)
-                await message.channel.send('Party deleted successfully!')
-            else:
-                await message.channel.send('Party not found')
-
-        #currently broken
-        if message.content.startswith('!setpresident'):
-                guild = message.guild
-            #try:
-                member = guild.get_member_named(message.content.split(" ")[1])
-                if g.current_pres:
-                    oldpres = guild.get_member(int(g.current_pres))
+            #deletes a political party
+            if message.content.startswith('!deleteparty'):
+                args = message.content.split(' ')
+                if len(args) < 2:
+                    await message.channel.send('Usage: !deleteparty partyname')
+                name = message.content[13:]
+                party = None
+                for p in g.parties:
+                    if p.name == name:
+                        party = p
+                if party:
+                    partyrole = message.guild.get_role(party.role)
+                    await partyrole.delete()
+                    g.parties.remove(party)
+                    await message.channel.send('Party deleted successfully!')
                 else:
-                    oldpres = None
+                    await message.channel.send('Party not found')
+
+            #Sets the current guild president to a given member
+            if message.content.startswith('!setpresident'):
+                guild = message.guild
                 try:
-                    presrole = guild.get_role(int(g.presidentRole))
-                    await member.add_roles(presrole)
+                    if len(message.mentions) > 0:
+                        member = message.mentions[0]
+                        if g.current_pres:
+                            oldpres = guild.get_member(int(g.current_pres))
+                        else:
+                            oldpres = None
+                        try:
+                            presrole = guild.get_role(int(g.presidentRole))
+                            await member.add_roles(presrole)
+                        except:
+                            presrole = await guild.create_role(name="President",color=discord.Color.gold(),hoist=True)
+                            g.presidentRole = presrole.id
+                            await member.add_roles(presrole)
+                        if oldpres and oldpres != member.id:
+                            await oldpres.remove_roles(presrole)
+                        g.current_pres = member.id
+                        await message.channel.send("Your new president is: " + member.mention)
+                    else:
+                        raise Exception("hi")
                 except:
-                    presrole = await guild.create_role(name="President",color=discord.Color.gold(),hoist=True)
-                    g.presidentRole = presrole.id
-                    await member.add_roles(presrole)
-                if oldpres:
-                    await oldpres.remove_roles(presrole)
-                g.current_pres = highest
-                await message.channel.send("Your new president is: " + member.mention)
-            #except:
-                #await message.channel.send("Usage: !setpresident member")
+                    await message.channel.send("Usage: !setpresident member")
 
 
+print("started!")
 
 
-print("started! uwu")
-
-
-
-#clock that tests for election times (wednesday/saturday 8pm)
+#clock that tests for election times and rpg events (elections: wednesday/saturday 8pm)
 days = {0:2,1:3,2:5,3:6}
 async def clock():
     await client.wait_until_ready()
@@ -620,9 +722,10 @@ async def clock():
             if datetime.now().hour > 19 and guild.settings["autoelections"]:
                 if days[guild.phase] == datetime.now().weekday():
                     await nextPhase(guild, client)
+        rpginstance.updatehealth()
+        save_rpg(rpginstance)
 
 #main function, just for threading stuff
-
 if __name__ == '__main__':
     client.loop.create_task(clock())
     with open("data/token.txt") as f:

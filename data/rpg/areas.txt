@@ -1,0 +1,9 @@
+#AREA, name, level
+#monster frequency
+#monster_two frequency
+#etc
+#
+AREA Plains 1
+"Green Slime" "1"
+AREA Debug_Plains 1
+"Debug Slime" "1"

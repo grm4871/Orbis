@@ -1,0 +1,5 @@
+#any line where the first character is a # will be read as a comment and not processed
+#name, drops, damage, speed, armor penetration, attack range, armor reduction, health
+#
+"Green Slime" "Gold;1;.5--Gold;2;.49--Wooden Sword;1;.01" "1" ".05" "0" "1" "0" "1" "1"
+"Debug Slime" "Gold;20;.5--Wooden Sword;1;.5--Iron Helmet;1;.5" "1" ".05" "0" "1" "0" "1" "100"
