@@ -80,8 +80,11 @@ class CommandParser:
                     expected = cmd.min_num_args
                 else:
                     expected = f"{cmd.min_num_args}-{cmd.max_num_args}"
+                given = f"{len(args)} argument"
+                if len(args) != 1:
+                    given += "s"
                 await message.channel.send(
-                    f"Command `{self.prefix}{cmd_word}` was given {len(args)} arguments, but expects {expected}")
+                    f"Command `{self.prefix}{cmd_word}` was given {given}, but expects {expected}")
 
         return True
 
