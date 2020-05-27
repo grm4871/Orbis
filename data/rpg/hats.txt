@@ -1,4 +1,2 @@
-#Name, durability, attributes(currently unused), damage reduction
-#all other armor types have the same format
 "Wooden Helmet" "10" "" "1"
 "Iron Helmet" "20" "" "2"

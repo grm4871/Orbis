@@ -225,35 +225,42 @@ class Player:
     outputs player's gear in string format
     """
     def showstats(self):
-        output = f"{self.name}, health: {self.health}/{self.maxhealth} \n"
-        output += f"level {self.level} - {self.xp}/{int(10 * (1.05**self.level))} xp\n"
+        output = f"{self.name} - LV {self.level}\n\n"
+        output += f"HP: {self.health}/{self.maxhealth}\n"
+        output += createprogressbar(self.health, self.maxhealth, 15) + "\n\n"
+        output += f"XP: {self.xp}/{int(10 * (1.05**self.level))}\n"
+        output += createprogressbar(self.xp, int(10 * (1.05**self.level)), 15) + "\n\n"
+
         if self.weapon:
-            output += f"weapon: {self.weapon.name} - {self.weapon.durability} durability left\n"
+            output += f"Weapon --- {self.weapon.name} - {self.weapon.durability} durability left\n"
         else:
-            output += 'no weapon equipped!\n'
+            output += 'Weapon --- None\n'
         if self.hat:
-            output += f"hat: {self.hat.name} - {self.hat.durability} durability left\n"
+            output += f"Hat ------ {self.hat.name} - {self.hat.durability} durability left\n"
         else:
-            output += 'no hat equipped!\n'
+            output += 'Hat ------ None\n'
         if self.shirt:
-            output += f"shirt: {self.shirt.name}\n - {self.shirt.durability} durability left"
+            output += f"Shirt ---- {self.shirt.name} - {self.shirt.durability} durability left\n"
         else:
-            output += 'no shirt equipped!\n'
+            output += 'Shirt ---- None\n'
         if self.pants:
-            output += f"pants: {self.pants.name}\n - {self.pants.durability} durability left"
+            output += f"Pants ---- {self.pants.name} - {self.pants.durability} durability left\n"
         else:
-            output += 'no pants equipped!\n'
+            output += 'Pants ---- None\n'
         if self.shoes:
-            output += f"shoes: {self.shoes.name}\n - {self.shoes.durability} durability left"
+            output += f"Shoes ---- {self.shoes.name} - {self.shoes.durability} durability left\n"
         else:
-            output += 'no shoes equipped!\n'
+            output += 'Shoes ---- None\n'
         return output
 
     def showinventory(self):
-        output = "Inventory:\n"
-        output += f"Gold: {self.gold}\n"
+        output = "\n"
+        output += f"Inventory\n\nGold: {self.gold}\n\n"
+        output += f"##{'Item':>6} {'QT':>20}\n" + '-' * 29 + "\n"
+        itemNum = 0
         for item in self.inventory:
-            output += item + ": " + str(self.inventory[item][1]) + "\n"
+            output += f"{itemNum:>2}  {item:<15}{self.inventory[item][1]:>10}\n"
+            itemNum += 1
         return output
 
     def showarea(self):
@@ -288,6 +295,18 @@ class Player:
             self.health = self.maxhealth
             return f"{self.name} leveled up to level {self.level}!"
         return f"{self.name} gained {xp} xp - {self.xp}/{xpgoal}"
+
+"""
+creates a text progress bar for an incomplete stat
+"""
+def createprogressbar(part, whole, length=10):
+    output = "["
+    char = "#"
+    for i in range(length):
+        if part < whole * ((i+1)/length):
+            char = ":"
+        output += char
+    return output + "]"
 
 class ItemInstance:
     def __init__(self, item):
@@ -409,7 +428,7 @@ def load():
         for line in f.readlines():
             if not line[0] == "#":
                 spl = line.split('"')
-                armor[spl[1]] = append(Armor(spl[1], spl[3], spl[5], spl[7], "shoes"))
+                armor[spl[1]] = (Armor(spl[1], spl[3], spl[5], spl[7], "shoes"))
 
     #monsters
     monsters = {}
