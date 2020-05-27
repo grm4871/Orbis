@@ -10,6 +10,7 @@ CommandHandler = Callable[..., Awaitable[None]]
 
 
 class Command(NamedTuple):
+    """A registered command, including its handler and metadata."""
     handler_func: CommandHandler
     aliases: List[str]
     min_num_args: int
@@ -20,6 +21,24 @@ class Command(NamedTuple):
 class BadCommandDefinition(Exception):
     """A command definition is invalid."""
     pass
+
+
+class CommandContext:
+    """Context passed to command handler functions.
+
+    :param discord.Message message: the message instance
+    """
+
+    def __init__(self, message):
+        self.message = message
+        self.user = message.author
+
+    async def send(self, *args, **kwargs):
+        """Send a message back to the channel the command was sent to.
+
+        Arguments are forwarded to ``discord.abc.Messageable.send``.
+        """
+        await self.message.channel.send(*args, **kwargs)
 
 
 class CommandParser:
@@ -53,7 +72,7 @@ class CommandParser:
             cmd = self._command_map[cmd_word]
             if cmd.min_num_args <= len(args) <= cmd.max_num_args:
                 # call the handler function
-                await cmd.handler_func(message, *args)
+                await cmd.handler_func(CommandContext(message), *args)
             else:
                 # either too few or too many arguments were given;
                 # send an error message
@@ -93,7 +112,7 @@ class CommandParser:
                     min_num_args += 1
 
             # add an entry to the tables of commands
-            aliases.append(func.__name__)
+            aliases.insert(0, func.__name__)
             cmd_entry = Command(func, aliases, min_num_args, max_num_args, help_text)
             self.commands.append(cmd_entry)
             for alias in aliases:
