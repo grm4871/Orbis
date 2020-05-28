@@ -1,6 +1,8 @@
+import pickle
 import random
-import numpy
 import time
+
+import numpy
 
 #planned additions
 
@@ -84,7 +86,7 @@ class Player:
         self.level = 1
         self.name = name
         self.weapon = None #stat: dmg
-        self.hat = None 
+        self.hat = None
         self.shirt = None
         self.pants = None
         self.shoes = None
@@ -141,7 +143,7 @@ class Player:
     def attack(self, other):
         #figure out how much damage to do
         output = ""
-        if self.weapon: 
+        if self.weapon:
             damage = self.weapon.dmg
             self.weapon.durability -= 1
             if self.weapon.durability == 0:
@@ -219,7 +221,7 @@ class Player:
     def heal(self, health):
         self.health += health
         if self.health > self.maxhealth:
-            self.health = self.maxhealth            
+            self.health = self.maxhealth
 
     """
     outputs player's gear in string format
@@ -275,7 +277,7 @@ class Player:
             return True
         else:
             return False
-    
+
     def deacquire(self, item, quantity=1):
         if item.name in self.inventory:
             if self.inventory[item.name][1] > quantity:
@@ -544,6 +546,22 @@ class GameInstance():
             output += f"`{area}`: Level {self.areas[area].requiredLevel}\n"
         return output
 
-if __name__ == "__main__":
-    #load()
-    pass
+    def load(self):
+        """Attempt to load saved game state from a file."""
+        try:
+            with open("data/rpginstance.txt", "rb") as f:
+                r = pickle.load(f)
+                if r:
+                    self.players = r.players
+                    self.healthtime = r.healthtime
+        except Exception:
+            pass
+
+    def save(self):
+        """Save the game state to a file."""
+        with open("data/rpginstance.txt", "wb") as f:
+            pickle.dump(self, f, protocol=-1)
+
+
+rpg_instance = load()
+rpg_instance.load()

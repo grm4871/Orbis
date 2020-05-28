@@ -10,17 +10,16 @@ from guilds import Guild
 import guilds
 import _pickle as pickle
 import rpg
+from rpg import rpg_instance as rpginstance
 
 #per-instance bot state
 GUILDS = []
-rpginstance = rpg.load()
 
 #helper functions
 """
 gets a guild (object) by id
 """
 def fetch_guild(id):
-    global GUILDS
     for guild in GUILDS:
         if guild.server == id:
             return guild
@@ -41,7 +40,6 @@ def member_exists(member, guild):
 checks if a server is a registered orbis guild
 """
 def server_registered(id):
-    global GUILDS
     for guild in GUILDS:
         if guild.server == id:
             return guild
@@ -62,11 +60,6 @@ def save_rpg(rpginstance):
     with open("data/rpginstance.txt", "wb") as f:
         pickle.dump(rpginstance, f, -1)
 
-#loads the rpg instance with pickle
-def load_rpg():
-    with open("data/rpginstance.txt", "rb") as f:
-        return pickle.load(f)
-
 def get_color(color_string):
     try:
         color = webcolors.name_to_hex(color_string, spec='css3')[1:]
@@ -79,14 +72,6 @@ def get_color(color_string):
         except:
             return False
 
-
-try:
-    r = load_rpg()
-    if r:
-        rpginstance.players = r.players
-        rpginstance.healthtime = r.healthtime
-except:
-    pass
 
 try:
     GUILDS = load_guilds()
@@ -113,11 +98,8 @@ async def check_cooldown(id, message):
 #commands
 @client.event
 async def on_message(message):
-    global GUILDS #list of guilds
-    global rpginstance #all rpg state is contained in this class
-
     #ignore self
-    if message.author == client.user:
+    if message.author.bot:
         return
     
     #ping command
@@ -140,17 +122,10 @@ async def on_message(message):
     """
     RPG COMMANDS
     """
-    #at some point this should be an actual help message
-    if message.content.startswith("?help") or message.content == "?h":
-        await message.channel.send("```RPG module is a work in progress. Please be patient.```")
-
-    #shows your inventory
-    elif message.content.startswith("?inventory") or message.content == "?i":
-        await message.channel.send(f"```{rpginstance.fetchplayer(message.author.id, message.author.name).showinventory()}```")
-        save_rpg(rpginstance)
+    rpg.on_message(message)
 
     #shows your rpg stats / equipment
-    elif message.content.startswith("?stats") or message.content == "?s":
+    if message.content.startswith("?stats") or message.content == "?s":
         await message.channel.send(f"```{rpginstance.fetchplayer(message.author.id, message.author.name).showstats()}```")
         save_rpg(rpginstance)
 
@@ -593,7 +568,6 @@ async def clock():
     await client.wait_until_ready()
     while(True):
         await asyncio.sleep(5)
-        global GUILDS
         for guild in GUILDS:
             if datetime.now().hour > 19 and guild.settings["autoelections"]:
                 if days[guild.phase] == datetime.now().weekday():
