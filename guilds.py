@@ -202,7 +202,7 @@ class Guild():
             self.candidates = []
             self.phase = 0 #0, 1, 2, 3
             self.electionMessage = None #message id or array of message ids, internal use
-            self.settings = {"autoelections":False}
+            self.settings = {"autoelections":False,"tax":0,"salestax":0}
             self.electionChannel = electionChannel
             self.presidentRole = presidentRole
             self.bal = 0
@@ -245,6 +245,6 @@ class Listing():
         self.currency = "Gold"
         self.author = author
 
-    def show(self):
-        return f"{self.quantity} {self.name}(s) for {self.price} {self.currency} each\n"
+    def show(self, tax=0):
+        return f"{self.quantity} {self.name}(s) for {self.price*(tax+1)} {self.currency} each\n"
 

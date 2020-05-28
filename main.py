@@ -67,6 +67,19 @@ def load_rpg():
     with open("data/rpginstance.txt", "rb") as f:
         return pickle.load(f)
 
+def get_color(color_string):
+    try:
+        color = webcolors.name_to_hex(color_string, spec='css3')[1:]
+        return color
+    except:
+        try:
+            color = color_string[1:]
+            test = webcolors.hex_to_rgb("#" + color)
+            return color
+        except:
+            return False
+
+
 try:
     r = load_rpg()
     if r:
@@ -108,11 +121,11 @@ async def on_message(message):
         return
     
     #ping command
-    if message.content == "!ping":
+    elif message.content == "!ping":
         await message.channel.send("pong!")
 
     #makes a Guild object for the server (serverowner only)
-    if message.content == "!registerserver" and message.author == message.guild.owner:
+    elif message.content == "!registerserver" and message.author == message.guild.owner:
         if(fetch_guild(message.guild.id) == None):
             presrole = await message.guild.create_role(name="President",color=discord.Color.gold(),hoist=True)
             GUILDS.append(Guild(message.guild.id, electionChannel=message.channel.id, presidentRole=presrole.id))
@@ -120,7 +133,7 @@ async def on_message(message):
             save_guilds(GUILDS)
 
     #creates a guild object for servers that aren't meant to participate in the map game (upcoming)
-    if message.content.startswith("!registerservernonation"):
+    elif message.content.startswith("!registerservernonation"):
         GUILDS.append(Guild(message.guild.id, nation=False))
         print("registered")
 
@@ -132,34 +145,43 @@ async def on_message(message):
         await message.channel.send("```RPG module is a work in progress. Please be patient.```")
 
     #shows your inventory
-    if message.content.startswith("?inventory") or message.content == "?i":
+    elif message.content.startswith("?inventory") or message.content == "?i":
         await message.channel.send(f"```{rpginstance.fetchplayer(message.author.id, message.author.name).showinventory()}```")
         save_rpg(rpginstance)
 
     #shows your rpg stats / equipment
-    if message.content.startswith("?stats") or message.content == "?s":
+    elif message.content.startswith("?stats") or message.content == "?s":
         await message.channel.send(f"```{rpginstance.fetchplayer(message.author.id, message.author.name).showstats()}```")
         save_rpg(rpginstance)
 
     #shows your current area
-    if message.content == "?area":
+    elif message.content == "?area":
         await message.channel.send("You are in: `" + rpginstance.fetchplayer(message.author.id, message.author.name).showarea() + "`")
         save_rpg(rpginstance)
 
     #trigers a battle with a random monster from your current area
-    if message.content.startswith("?adventure") or message.content == "?a":
+    elif message.content.startswith("?adventure") or message.content == "?a":
+        g = server_registered(message.guild.id)
         if await check_cooldown(message.author.id, message):
             return
         player = rpginstance.fetchplayer(message.author.id, message.author.name)
         if player.health > 0:
-            await message.channel.send("```" + rpginstance.battle(player) + "```")
+            initialgold = player.gold
+            output = "```" + rpginstance.battle(player)
+            finalgold = player.gold
+            if g and finalgold - initialgold != 0:
+                incometax = (finalgold - initialgold) * g.settings["tax"]
+                output += f"\nThe guild takes {incometax} gold from your earnings!"
+                player.gold -= incometax
+                g.bal += incometax
+            await message.channel.send(output + "```")
         else:
             await message.channel.send("You are tired and need to rest!")
         save_rpg(rpginstance)
 
 
     #equips an item (weapon/armor) from your inventory
-    if message.content.startswith("?equip"):
+    elif message.content.startswith("?equip"):
         itemname = message.content[7:]
         player = rpginstance.fetchplayer(message.author.id, message.author.name)
         if rpginstance.equip(player, itemname):
@@ -168,18 +190,18 @@ async def on_message(message):
             await message.channel.send(f"Failed to equip `{itemname}`")
 
     #debug command please remove
-    if message.content.startswith("?cheat12345"):
+    elif message.content.startswith("?cheat12345"):
         player = rpginstance.fetchplayer(message.author.id, message.author.name)
         player.health = 10000
         player.maxhealth = 10000
         await message.channel.send("cheater")
 
     #lists all rpg areas
-    if message.content.startswith("?areas"):
+    elif message.content.startswith("?areas"):
         await message.channel.send(rpginstance.showareas())
 
     #travel to a different rpg area
-    if message.content.startswith("?travel"):
+    elif message.content.startswith("?travel"):
         areaname = message.content[8:]
         player = rpginstance.fetchplayer(message.author.id, message.author.name)
         if areaname in rpginstance.areas:
@@ -193,7 +215,7 @@ async def on_message(message):
             await message.channel.send("Travel failed.")
 
     #creates an rpg item listing on the market
-    if message.content.startswith("?sell"):
+    elif message.content.startswith("?sell"):
         args = message.content.split("-") #itemname, quant, unitprice
         if len(args) != 4:
             await message.channel.send("Usage: ?sell-item-quantity-price (per unit)")
@@ -214,11 +236,10 @@ async def on_message(message):
             elif unitprice < 0.00001 or unitprice > 99999999999:
                 await message.channel.send("Bad price")
             else:
-                print("this one")
                 await message.channel.send("You can't sell what you don't have!")
 
     #shows a context menu for buying rpg items from the market
-    if message.content.startswith("?buy"):
+    elif message.content.startswith("?buy"):
         g = server_registered(message.guild.id)
         if message.content.startswith("?buy-"):
             args = message.content.split("-")
@@ -233,19 +254,25 @@ async def on_message(message):
                             await message.channel.send(f"`{player.name} gained {listing.item.name}`\n")
                             g.listings[name].remove(listing)
                             if listing.author != player:
-                                player.gold -= listing.totalprice
+                                #at this point, the transaction is successful, and between two different users
+                                salestax = (g.settings["salestax"] + 1) * listing.totalprice
+                                player.gold -= listing.totalprice + salestax
+                                g.bal += salestax
                                 listing.author.gold += listing.totalprice
                             save_guilds(GUILDS)
                         else:
                             await message.channel.send("Your inventory isn't big enough!")
                     else:
                         await message.channel.send("You don't have the money for that!")
-        else: #view listings
+        else: #without dashes, the command shows listings
             name = message.content[5:]
             output = "```\n--Listings--\n"
+            if g.settings["salestax"] != 0: output += "*Listings include sales tax*\n"
+            output += "\n"
             if name in g.listings:
+                tax = g.settings["salestax"]
                 for i, listing in enumerate(g.listings[name]):
-                    output += f"{i}: {listing.show()}"
+                    output += f"{i}: {listing.show(tax)}"
                 output += f"```To buy a listing, do ?buy-{name}-#"
                 await message.channel.send(output)
             else:
@@ -279,7 +306,7 @@ async def on_message(message):
                     await message.channel.send(m)
 
         #lists the guild's candidates
-        if message.content.startswith('!candidates'):
+        elif message.content.startswith('!candidates'):
             outputs = []
             idx = 0
             num = 0
@@ -301,7 +328,7 @@ async def on_message(message):
                     await message.channel.send(m)
 
         #sends a help message
-        if message.content.startswith('!help'):
+        elif message.content.startswith('!help'):
                     await message.channel.send(
                         """Commands: 
                         !createparty - creates a party
@@ -312,7 +339,7 @@ async def on_message(message):
                         !ownerhelp - lists all server owner commands""")
 
         #create party
-        if message.content.startswith("!createparty"):
+        elif message.content.startswith("!createparty"):
             guild = message.guild
             args = message.content.split('-')
             if len(args) != 3:
@@ -344,29 +371,22 @@ async def on_message(message):
                     if p.name == name:
                         party = p
                 if not party:
-
                     #get color
-                    try:
-                        color = webcolors.name_to_hex(args[2], spec='css3')[1:]
-                    except:
-                        try:
-                            color = args[2][1:]
-                            test = webcolors.hex_to_rgb("#" + color)
-                        except:
-                            await message.channel.send('Could not create party')
-                            return
-                    role = await message.guild.create_role(name=args[1],color=discord.Color(int(color,16)),hoist=True)
-                    await message.author.add_roles(role)
-                    colorrgb = webcolors.hex_to_rgb("#" + color)
-                    g.parties.append(Party(args[1],(colorrgb[0],colorrgb[1],colorrgb[2]),[message.author.id],role.id,""))
-                    await message.channel.send('Party created successfully')
-
+                    color = get_color(args[2])
+                    if not color:
+                        await message.channel.send("Party could not be created")
+                    else:
+                        role = await message.guild.create_role(name=args[1],color=discord.Color(int(color,16)),hoist=True)
+                        await message.author.add_roles(role)
+                        colorrgb = webcolors.hex_to_rgb("#" + color)
+                        g.parties.append(Party(args[1],(colorrgb[0],colorrgb[1],colorrgb[2]),[message.author.id],role.id,""))
+                        await message.channel.send('Party created successfully')
                 else:
                     await message.channel.send("That party already exists!")
             save_guilds(GUILDS)
 
         #leaves your political party
-        if message.content.startswith('!leaveparty'):
+        elif message.content.startswith('!leaveparty'):
             guild = message.guild
             oldparty = None
             for party in g.parties:
@@ -388,7 +408,7 @@ async def on_message(message):
             save_guilds(GUILDS)
 
         #join political party
-        if message.content.startswith('!joinparty'):
+        elif message.content.startswith('!joinparty'):
             guild = message.guild
             args = message.content.split(' ')
             if len(args) < 2:
@@ -431,7 +451,7 @@ async def on_message(message):
 
 
         #adds you to the list of presidential candidates
-        if message.content.startswith('!runforoffice') and g.phase == 0:
+        elif message.content.startswith('!runforoffice') and g.phase == 0:
             inParty = False
             for party in g.parties:
                 if message.author.id in party.members:
@@ -476,28 +496,28 @@ async def on_message(message):
                     !deleteparty: deletes a party""")
 
             #forces the election cycle to the next phase
-            if message.content.startswith('!forceelection'):
+            elif message.content.startswith('!forceelection'):
                 await guilds.nextPhase(g, client)
                 save_guilds(GUILDS)
 
             #resets the guild's election cycle
-            if message.content.startswith('!resetelection'):
+            elif message.content.startswith('!resetelection'):
                 g.phase = 0
                 save_guilds(GUILDS)
 
             #prints the current election state (pre-primary, primary, pre-general, general)
-            if message.content.startswith('!electionstate'):
+            elif message.content.startswith('!electionstate'):
                 await message.channel.send(g.phase)
 
             #toggles automatic elections (might be broken, i need to look into that)
-            if message.content.startswith('!autoelections'):
+            elif message.content.startswith('!autoelections'):
                 g.settings["autoelections"] = not g.settings["autoelections"]
                 if g.settings["autoelections"]: await message.channel.send("Automatic elections on!")
                 else: await message.channel.send("Automatic elections off!")
                 save_guilds(GUILDS)
 
             #deletes a political party
-            if message.content.startswith('!deleteparty'):
+            elif message.content.startswith('!deleteparty'):
                 args = message.content.split(' ')
                 if len(args) < 2:
                     await message.channel.send('Usage: !deleteparty partyname')
@@ -515,7 +535,7 @@ async def on_message(message):
                     await message.channel.send('Party not found')
 
             #Sets the current guild president to a given member
-            if message.content.startswith('!setpresident'):
+            elif message.content.startswith('!setpresident'):
                 guild = message.guild
                 try:
                     if len(message.mentions) > 0:
@@ -540,6 +560,29 @@ async def on_message(message):
                 except:
                     await message.channel.send("Usage: !setpresident member")
 
+            elif message.content.startswith('!setelectionchannel'):
+                g.electionChannel = message.channel
+                await message.channel.send("Election channel set!")
+                await message.delete()
+
+            elif message.content.startswith('!setcolor'):
+                color = get_color(message.content.split(" ")[1])
+                if color:
+                    g.color = color
+                    await message.channel.send("Color set!")
+                else:
+                    await message.channel.send("Invalid color")
+
+            elif message.content.startswith('!settax') or message.content.startswith('!setsalestax'):
+                rate = float(message.content.split(" ")[1])
+                if rate >= 0 and rate < 1:
+                    if message.content.startswith('!settax'):
+                        g.settings["tax"] = rate
+                    else:
+                        g.settings["salestax"] = rate
+                    await message.channel.send("Tax rate set!")
+                else:
+                    await message.channel.send("Tax rate must be between zero and one")
 
 print("started!")
 
