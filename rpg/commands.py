@@ -38,3 +38,9 @@ def get_command_help(command):
 async def inventory(ctx):
     await ctx.send(f"```{ctx.player.showinventory()}```")
     rpg_instance.save()
+
+
+@parser.command(aliases="s", help_text="show your stats/equipment")
+async def stats(ctx):
+    await ctx.send(f"```{ctx.player.showstats()}```")
+    rpg_instance.save()

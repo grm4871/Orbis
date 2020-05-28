@@ -124,11 +124,6 @@ async def on_message(message):
     """
     rpg.on_message(message)
 
-    #shows your rpg stats / equipment
-    if message.content.startswith("?stats") or message.content == "?s":
-        await message.channel.send(f"```{rpginstance.fetchplayer(message.author.id, message.author.name).showstats()}```")
-        save_rpg(rpginstance)
-
     #shows your current area
     elif message.content == "?area":
         await message.channel.send("You are in: `" + rpginstance.fetchplayer(message.author.id, message.author.name).showarea() + "`")
