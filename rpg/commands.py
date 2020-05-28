@@ -90,3 +90,16 @@ async def equip(ctx, *, item_name):
 @parser.command(help_text="list all RPG areas")
 async def areas(ctx):
     await ctx.send(rpg_instance.showareas())
+
+
+@parser.command(help_text="travel to a different RPG area")
+async def travel(ctx, *, area_name):
+    if area_name in rpg_instance.areas:
+        area = rpg_instance.areas[area_name]
+        if ctx.player.level >= area.requiredLevel:
+            ctx.player.area = area
+            await ctx.send(f"You are now in: `{ctx.player.showarea()}`")
+        else:
+            await ctx.send("Your level isn't high enough for that area!")
+    else:
+        await ctx.send("Travel failed.")

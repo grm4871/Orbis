@@ -131,20 +131,6 @@ async def on_message(message):
         player.maxhealth = 10000
         await message.channel.send("cheater")
 
-    #travel to a different rpg area
-    elif message.content.startswith("?travel"):
-        areaname = message.content[8:]
-        player = rpginstance.fetchplayer(message.author.id, message.author.name)
-        if areaname in rpginstance.areas:
-            area = rpginstance.areas[areaname]
-            if player.level >= area.requiredLevel:
-                player.area = area
-                await message.channel.send("You are now in: `" + rpginstance.fetchplayer(message.author.id, message.author.name).showarea() + "`")
-            else:
-                await message.channel.send("Your level isn't high enough for that area!")
-        else:
-            await message.channel.send("Travel failed.")
-
     #creates an rpg item listing on the market
     elif message.content.startswith("?sell"):
         args = message.content.split("-") #itemname, quant, unitprice
