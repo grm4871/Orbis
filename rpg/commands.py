@@ -76,3 +76,12 @@ async def adventure(ctx):
     else:
         await ctx.send("You are tired and need to rest!")
     rpg_instance.save()
+
+
+@parser.command(help_text="equip an item (weapon/armor) from your inventory")
+async def equip(ctx, *, item_name):
+    if rpg_instance.equip(ctx.player, item_name):
+        await ctx.send(f"Equipped `{item_name}`!")
+    else:
+        await ctx.send(f"Failed to equip `{item_name}`")
+    rpg_instance.save()

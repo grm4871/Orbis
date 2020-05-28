@@ -124,17 +124,8 @@ async def on_message(message):
     """
     await rpg.on_message(message)
 
-    #equips an item (weapon/armor) from your inventory
-    if message.content.startswith("?equip"):
-        itemname = message.content[7:]
-        player = rpginstance.fetchplayer(message.author.id, message.author.name)
-        if rpginstance.equip(player, itemname):
-            await message.channel.send(f"Equipped `{itemname}`!")
-        else:
-            await message.channel.send(f"Failed to equip `{itemname}`")
-
     #debug command please remove
-    elif message.content.startswith("?cheat12345"):
+    if message.content.startswith("?cheat12345"):
         player = rpginstance.fetchplayer(message.author.id, message.author.name)
         player.health = 10000
         player.maxhealth = 10000
