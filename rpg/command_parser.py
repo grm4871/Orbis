@@ -27,11 +27,21 @@ class CommandContext:
     """Context passed to command handler functions.
 
     :param discord.Message message: the message instance
+    :param dict extra_attrs: extra attributes to be lazy-added
     """
 
-    def __init__(self, message):
+    def __init__(self, message, extra_attrs):
         self.message = message
         self.user = message.author
+        self._extra_attrs = extra_attrs
+
+    def __getattr__(self, name):
+        if name in self._extra_attrs:
+            value = self._extra_attrs[name](self)
+            setattr(self, name, value)
+            return value
+        else:
+            raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 
     async def send(self, *args, **kwargs):
         """Send a message back to the channel the command was sent to.
@@ -51,6 +61,22 @@ class CommandParser:
         self.prefix = prefix
         self.commands = []
         self._command_map = {}
+        self._context_attrs = {}
+
+    def add_custom_context(self, attr_name, func):
+        """Add a custom attribute to context objects passed to handlers.
+
+        When a handler accesses the attribute, the specified function will be
+        called to determine its value. (The function will only be called once
+        per context; the result will be cached.)
+
+        :param str attr_name: the name of the attribute to add
+        :param (CommandContext) -> Any func: a function to generate the value
+        """
+        if attr_name in self._context_attrs:
+            raise ValueError(f"Custom context attribute already added: {attr_name}")
+        else:
+            self._context_attrs[attr_name] = func
 
     async def on_message(self, message):
         """Attempt to parse and handle a user command.
@@ -72,7 +98,8 @@ class CommandParser:
             cmd = self._command_map[cmd_word]
             if cmd.min_num_args <= len(args) <= cmd.max_num_args:
                 # call the handler function
-                await cmd.handler_func(CommandContext(message), *args)
+                ctx = CommandContext(message, self._context_attrs)
+                await cmd.handler_func(ctx, *args)
             else:
                 # either too few or too many arguments were given;
                 # send an error message

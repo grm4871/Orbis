@@ -6,6 +6,7 @@ from . import rpg_instance
 from .command_parser import CommandParser
 
 parser = CommandParser("?")
+parser.add_custom_context("player", lambda ctx: rpg_instance.fetchplayer(ctx.user.id, ctx.user.name))
 
 
 @parser.command(aliases="h", help_text="show this help message")
@@ -35,6 +36,5 @@ def get_command_help(command):
 
 @parser.command(aliases="i", help_text="show your inventory")
 async def inventory(ctx):
-    player = rpg_instance.fetchplayer(ctx.user.id, ctx.user.name)
-    await ctx.send(f"```{player.showinventory()}```")
+    await ctx.send(f"```{ctx.player.showinventory()}```")
     rpg_instance.save()
