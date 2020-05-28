@@ -88,14 +88,16 @@ class CommandParser:
 
         return True
 
-    def command(self, *, aliases, help_text):
+    def command(self, *, aliases=None, help_text):
         """Decorator to register a command handler function.
 
-        :param str|list[str] aliases: the command words to trigger this handler
-        :param str help_text: the command's help description
+        :param str|list[str]|None aliases: any aliases to register in addition to the function's name
+        :param str|None help_text: the command's help description, or ``None`` to hide it from help
         """
         # convert the alias(es) to a list
-        if isinstance(aliases, str):
+        if aliases is None:
+            aliases = []
+        elif isinstance(aliases, str):
             aliases = [aliases]
         else:
             aliases = list(aliases)
@@ -119,7 +121,7 @@ class CommandParser:
             cmd_entry = Command(func, aliases, min_num_args, max_num_args, help_text)
             self.commands.append(cmd_entry)
             for alias in aliases:
-                if alias in self.commands:
+                if alias in self._command_map:
                     raise BadCommandDefinition(f'Alias "{self.prefix}{alias}" registered more than once')
                 self._command_map[alias] = cmd_entry
             return func
