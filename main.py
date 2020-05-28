@@ -124,15 +124,8 @@ async def on_message(message):
     """
     await rpg.on_message(message)
 
-    #debug command please remove
-    if message.content.startswith("?cheat12345"):
-        player = rpginstance.fetchplayer(message.author.id, message.author.name)
-        player.health = 10000
-        player.maxhealth = 10000
-        await message.channel.send("cheater")
-
     #creates an rpg item listing on the market
-    elif message.content.startswith("?sell"):
+    if message.content.startswith("?sell"):
         args = message.content.split("-") #itemname, quant, unitprice
         if len(args) != 4:
             await message.channel.send("Usage: ?sell-item-quantity-price (per unit)")
