@@ -124,13 +124,8 @@ async def on_message(message):
     """
     rpg.on_message(message)
 
-    #shows your current area
-    elif message.content == "?area":
-        await message.channel.send("You are in: `" + rpginstance.fetchplayer(message.author.id, message.author.name).showarea() + "`")
-        save_rpg(rpginstance)
-
     #trigers a battle with a random monster from your current area
-    elif message.content.startswith("?adventure") or message.content == "?a":
+    if message.content.startswith("?adventure") or message.content == "?a":
         g = server_registered(message.guild.id)
         if await check_cooldown(message.author.id, message):
             return

@@ -44,3 +44,9 @@ async def inventory(ctx):
 async def stats(ctx):
     await ctx.send(f"```{ctx.player.showstats()}```")
     rpg_instance.save()
+
+
+@parser.command(help_text="show your current area")
+async def area(ctx):
+    await ctx.send(f"You are in: `{ctx.player.showarea()}`")
+    rpg_instance.save()
