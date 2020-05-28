@@ -71,6 +71,7 @@ async def adventure(ctx):
             output += f"\nThe guild takes {income_tax} gold from your earnings!"
             ctx.player.gold -= income_tax
             guild.bal += income_tax
+
         await ctx.send(f"```{output}```")
     else:
         await ctx.send("You are tired and need to rest!")

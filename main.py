@@ -122,7 +122,7 @@ async def on_message(message):
     """
     RPG COMMANDS
     """
-    rpg.on_message(message)
+    await rpg.on_message(message)
 
     #equips an item (weapon/armor) from your inventory
     if message.content.startswith("?equip"):
@@ -528,8 +528,9 @@ async def on_message(message):
                 else:
                     await message.channel.send("Tax rate must be between zero and one")
 
-print("started!")
-
+@client.event
+async def on_ready():
+    print(f'We have logged in as {client.user}')
 
 #clock that tests for election times and rpg events (elections: wednesday/saturday 8pm)
 days = {0:2,1:3,2:5,3:6}
