@@ -4,7 +4,7 @@ Code for parsing/processing user commands.
 
 import math
 from inspect import signature, Parameter
-from typing import NamedTuple, Callable, Awaitable, List
+from typing import NamedTuple, Callable, Awaitable, List, Optional
 
 CommandHandler = Callable[..., Awaitable[None]]
 
@@ -15,7 +15,8 @@ class Command(NamedTuple):
     aliases: List[str]
     min_num_args: int
     max_num_args: int
-    help_text: str
+    rest_arg: Optional[str]
+    help_text: Optional[str]
 
 
 class BadCommandDefinition(Exception):
@@ -85,21 +86,31 @@ class CommandParser:
         :return: True if the command was recognized and processed; False otherwise
         :rtype: bool
         """
-        content = message.content
+        content: str = message.content.strip()
         if not content.startswith(self.prefix):
             return False  # no prefix; ignore
 
-        words = content[len(self.prefix):].split()
-        if len(words) == 0:
+        parts = content[len(self.prefix):].split(maxsplit=1)
+        if len(parts) == 0:
             return False  # nothing after the prefix; ignore
 
-        cmd_word, *args = words
+        cmd_word = parts[0]
+        args_str = parts[1] if len(parts) == 2 else ""
         if cmd_word in self._command_map:
-            cmd = self._command_map[cmd_word]
+            cmd: Command = self._command_map[cmd_word]
+            if cmd.rest_arg is None:
+                args = args_str.split()
+            else:
+                args = args_str.split(maxsplit=cmd.max_num_args-1)
+
             if cmd.min_num_args <= len(args) <= cmd.max_num_args:
                 # call the handler function
                 ctx = CommandContext(message, self._context_attrs)
-                await cmd.handler_func(ctx, *args)
+                if cmd.rest_arg is not None and len(args) == cmd.max_num_args:
+                    kwargs = {cmd.rest_arg: args.pop()}
+                else:
+                    kwargs = {}
+                await cmd.handler_func(ctx, *args, **kwargs)
             else:
                 # either too few or too many arguments were given;
                 # send an error message
@@ -107,9 +118,11 @@ class CommandParser:
                     expected = cmd.min_num_args
                 else:
                     expected = f"{cmd.min_num_args}-{cmd.max_num_args}"
+
                 given = f"{len(args)} argument"
                 if len(args) != 1:
                     given += "s"
+
                 await message.channel.send(
                     f"Command `{self.prefix}{cmd_word}` was given {given}, but expects {expected}")
 
@@ -131,21 +144,38 @@ class CommandParser:
 
         def decorator(func: CommandHandler):
             params = list(signature(func).parameters.values())
+
+            # validate the first (context) parameter
             if len(params) == 0:
                 raise BadCommandDefinition("Handler function must take at least one parameter")
+            if params[0].kind not in (Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD):
+                raise BadCommandDefinition("First parameter of handler function must be positional")
 
-            # determine the minimum and maximum number of arguments
+            # determine the number and kind of arguments
             min_num_args = 0
-            max_num_args = len(params) - 1
+            max_num_args = 0
+            rest_arg = None
             for p in params[1:]:
                 if p.kind == Parameter.VAR_POSITIONAL:
                     max_num_args = math.inf
-                elif p.default == Parameter.empty:
-                    min_num_args += 1
+                else:
+                    if p.kind == Parameter.KEYWORD_ONLY:
+                        if max_num_args == math.inf:
+                            raise BadCommandDefinition("Handler function must not have both types of rest parameter")
+                        if rest_arg is not None:
+                            raise BadCommandDefinition("Handler function must not have more than one keyword-only "
+                                                       "parameter")
+                        rest_arg = p.name
+                    if p.default is Parameter.empty:
+                        if min_num_args != max_num_args:
+                            raise BadCommandDefinition("Handler function must not have a required parameter after an "
+                                                       "optional one")
+                        min_num_args += 1
+                    max_num_args += 1
 
             # add an entry to the tables of commands
             aliases.insert(0, func.__name__)
-            cmd_entry = Command(func, aliases, min_num_args, max_num_args, help_text)
+            cmd_entry = Command(func, aliases, min_num_args, max_num_args, rest_arg, help_text)
             self.commands.append(cmd_entry)
             for alias in aliases:
                 if alias in self._command_map:
