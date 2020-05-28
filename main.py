@@ -131,10 +131,6 @@ async def on_message(message):
         player.maxhealth = 10000
         await message.channel.send("cheater")
 
-    #lists all rpg areas
-    elif message.content.startswith("?areas"):
-        await message.channel.send(rpginstance.showareas())
-
     #travel to a different rpg area
     elif message.content.startswith("?travel"):
         areaname = message.content[8:]

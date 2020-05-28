@@ -85,3 +85,8 @@ async def equip(ctx, *, item_name):
     else:
         await ctx.send(f"Failed to equip `{item_name}`")
     rpg_instance.save()
+
+
+@parser.command(help_text="list all RPG areas")
+async def areas(ctx):
+    await ctx.send(rpg_instance.showareas())
