@@ -2,6 +2,7 @@
 Handlers for the RPG commands.
 """
 
+from main import check_cooldown, server_registered
 from . import rpg_instance
 from .command_parser import CommandParser
 
@@ -49,4 +50,28 @@ async def stats(ctx):
 @parser.command(help_text="show your current area")
 async def area(ctx):
     await ctx.send(f"You are in: `{ctx.player.showarea()}`")
+    rpg_instance.save()
+
+
+@parser.command(aliases="a", help_text="battle a random monster in your current area")
+async def adventure(ctx):
+    if await check_cooldown(ctx.user.id, ctx.send):
+        return
+
+    if ctx.player.health > 0:
+        # do the battle and record the gold earned
+        initial_gold = ctx.player.gold
+        output = rpg_instance.battle(ctx.player)
+        gold_earned = ctx.player.gold - initial_gold
+
+        # deduct income tax (if applicable)
+        guild = server_registered(ctx.message.guild.id)
+        if guild and gold_earned != 0:
+            income_tax = gold_earned * guild.settings["tax"]
+            output += f"\nThe guild takes {income_tax} gold from your earnings!"
+            ctx.player.gold -= income_tax
+            guild.bal += income_tax
+        await ctx.send(f"```{output}```")
+    else:
+        await ctx.send("You are tired and need to rest!")
     rpg_instance.save()

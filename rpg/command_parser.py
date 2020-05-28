@@ -48,7 +48,7 @@ class CommandContext:
 
         Arguments are forwarded to ``discord.abc.Messageable.send``.
         """
-        await self.message.channel.send(*args, **kwargs)
+        return await self.message.channel.send(*args, **kwargs)
 
 
 class CommandParser:

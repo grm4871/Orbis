@@ -86,10 +86,10 @@ SPAM COOLDOWN TRACKER - user id keys, time.time() values
 """
 cooldowns = {}
 #call this function before commands that usually get spammed
-async def check_cooldown(id, message):
+async def check_cooldown(id, send_func):
     if id in cooldowns:
         if cooldowns[id] + 2 > time.time():
-            await message.channel.send("You're doing that too fast!")
+            await send_func("You're doing that too fast!")
             cooldowns[id] = time.time()
             return True
     cooldowns[id] = time.time()
@@ -124,29 +124,8 @@ async def on_message(message):
     """
     rpg.on_message(message)
 
-    #trigers a battle with a random monster from your current area
-    if message.content.startswith("?adventure") or message.content == "?a":
-        g = server_registered(message.guild.id)
-        if await check_cooldown(message.author.id, message):
-            return
-        player = rpginstance.fetchplayer(message.author.id, message.author.name)
-        if player.health > 0:
-            initialgold = player.gold
-            output = "```" + rpginstance.battle(player)
-            finalgold = player.gold
-            if g and finalgold - initialgold != 0:
-                incometax = (finalgold - initialgold) * g.settings["tax"]
-                output += f"\nThe guild takes {incometax} gold from your earnings!"
-                player.gold -= incometax
-                g.bal += incometax
-            await message.channel.send(output + "```")
-        else:
-            await message.channel.send("You are tired and need to rest!")
-        save_rpg(rpginstance)
-
-
     #equips an item (weapon/armor) from your inventory
-    elif message.content.startswith("?equip"):
+    if message.content.startswith("?equip"):
         itemname = message.content[7:]
         player = rpginstance.fetchplayer(message.author.id, message.author.name)
         if rpginstance.equip(player, itemname):
