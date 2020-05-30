@@ -17,6 +17,7 @@ class Command(NamedTuple):
     max_num_args: int
     rest_arg: Optional[str]
     help_text: Optional[str]
+    usage_text: Optional[str]
 
 
 class BadCommandDefinition(Exception):
@@ -124,11 +125,11 @@ class CommandParser:
                     given += "s"
 
                 await message.channel.send(
-                    f"Command `{self.prefix}{cmd_word}` was given {given}, but expects {expected}")
+                    f"Command `{self.prefix}{cmd_word}` was given {given}, but expects {expected}\n" + cmd.usage_text)
 
         return True
 
-    def command(self, *, aliases=None, help_text):
+    def command(self, *, aliases=None, help_text, usage_text=None):
         """Decorator to register a command handler function.
 
         :param str|list[str]|None aliases: any aliases to register in addition to the function's name
@@ -141,6 +142,8 @@ class CommandParser:
             aliases = [aliases]
         else:
             aliases = list(aliases)
+
+        if usage_text: usage_text = "Usage: " + usage_text
 
         def decorator(func: CommandHandler):
             params = list(signature(func).parameters.values())
@@ -175,7 +178,7 @@ class CommandParser:
 
             # add an entry to the tables of commands
             aliases.insert(0, func.__name__)
-            cmd_entry = Command(func, aliases, min_num_args, max_num_args, rest_arg, help_text)
+            cmd_entry = Command(func, aliases, min_num_args, max_num_args, rest_arg, help_text, usage_text)
             self.commands.append(cmd_entry)
             for alias in aliases:
                 if alias in self._command_map:

@@ -103,3 +103,23 @@ async def travel(ctx, *, area_name):
             await ctx.send("Your level isn't high enough for that area!")
     else:
         await ctx.send("Travel failed.")
+
+
+@parser.command(help_text="create an rpg item listing on the guild market", usage_text="?sell quantity unit_price item")
+async def sell(ctx, price, quantity, *, item_name):
+    quant = int(quantity)
+    unitprice = float(price)
+    if item_name in ctx.player.inventory:
+        g = server_registered(ctx.message.guild.id)
+        if player.inventory[itemname][1] >= quant:
+            player.deacquire(rpginstance.finditem(itemname), quant)
+            g.addlisting(guilds.Listing(rpginstance.finditem(itemname), quant, unitprice, player))
+            await ctx.send("Listing posted.")
+            save_guilds(GUILDS)
+        else:
+            await ctx.send("You can't sell what you don't have!")
+    elif unitprice < 0.00001 or unitprice > 99999999999:
+        await ctx.send("Bad price")
+    else:
+        await ctx.send("You can't sell what you don't have!")
+

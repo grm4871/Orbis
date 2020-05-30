@@ -124,32 +124,8 @@ async def on_message(message):
     """
     await rpg.on_message(message)
 
-    #creates an rpg item listing on the market
-    if message.content.startswith("?sell"):
-        args = message.content.split("-") #itemname, quant, unitprice
-        if len(args) != 4:
-            await message.channel.send("Usage: ?sell-item-quantity-price (per unit)")
-        else:
-            itemname = args[1]
-            quant = int(args[2])
-            unitprice = float(args[3])
-            player = rpginstance.fetchplayer(message.author.id, message.author.name)
-            if itemname in player.inventory:
-                g = server_registered(message.guild.id)
-                if player.inventory[itemname][1] >= quant:
-                    player.deacquire(rpginstance.finditem(itemname), quant)
-                    g.addlisting(guilds.Listing(rpginstance.finditem(itemname), quant, unitprice, player))
-                    await message.channel.send("Listing posted.")
-                    save_guilds(GUILDS)
-                else:
-                    await message.channel.send("You can't sell what you don't have!")
-            elif unitprice < 0.00001 or unitprice > 99999999999:
-                await message.channel.send("Bad price")
-            else:
-                await message.channel.send("You can't sell what you don't have!")
-
     #shows a context menu for buying rpg items from the market
-    elif message.content.startswith("?buy"):
+    if message.content.startswith("?buy"):
         g = server_registered(message.guild.id)
         if message.content.startswith("?buy-"):
             args = message.content.split("-")
