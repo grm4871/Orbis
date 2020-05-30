@@ -483,7 +483,7 @@ async def clock():
         for guild in GUILDS:
             if datetime.now().hour > 19 and guild.settings["autoelections"]:
                 if days[guild.phase] == datetime.now().weekday():
-                    await nextPhase(guild, client)
+                    await guilds.nextPhase(guild, client)
                     save_guilds(GUILDS)
         rpginstance.updatehealth()
         save_rpg(rpginstance)

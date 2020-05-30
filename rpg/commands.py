@@ -2,7 +2,8 @@
 Handlers for the RPG commands.
 """
 
-from main import check_cooldown, server_registered
+import guilds
+from main import check_cooldown, server_registered, GUILDS, save_guilds
 from . import rpg_instance
 from .command_parser import CommandParser
 
@@ -114,9 +115,9 @@ async def sell(ctx, price, quantity, *, item_name):
     unitprice = float(price)
     if item_name.upper() in (item.upper() for item in ctx.player.inventory):
         g = server_registered(ctx.message.guild.id)
-        if player.inventory[itemname][1] >= quant:
-            player.deacquire(rpginstance.finditem(itemname), quant)
-            g.addlisting(guilds.Listing(rpginstance.finditem(itemname), quant, unitprice, player))
+        if ctx.player.inventory[item_name][1] >= quant:
+            ctx.player.deacquire(rpg_instance.finditem(item_name), quant)
+            g.addlisting(guilds.Listing(rpg_instance.finditem(item_name), quant, unitprice, ctx.player))
             await ctx.send("Listing posted.")
             save_guilds(GUILDS)
         else:
