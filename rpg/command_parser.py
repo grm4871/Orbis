@@ -124,8 +124,13 @@ class CommandParser:
                 if len(args) != 1:
                     given += "s"
 
+                if cmd.usage_text is None:
+                    usage = ""
+                else:
+                    usage = f"\nUsage: `{cmd.usage_text}`"
+
                 await message.channel.send(
-                    f"Command `{self.prefix}{cmd_word}` was given {given}, but expects {expected}\n" + cmd.usage_text)
+                    f"Command `{self.prefix}{cmd_word}` was given {given}, but expects {expected}{usage}")
 
         return True
 
@@ -134,6 +139,7 @@ class CommandParser:
 
         :param str|list[str]|None aliases: any aliases to register in addition to the function's name
         :param str|None help_text: the command's help description, or ``None`` to hide it from help
+        :param str|None usage_text: the command's usage text (optional)
         """
         # convert the alias(es) to a list
         if aliases is None:
@@ -142,8 +148,6 @@ class CommandParser:
             aliases = [aliases]
         else:
             aliases = list(aliases)
-
-        if usage_text: usage_text = "Usage: " + usage_text
 
         def decorator(func: CommandHandler):
             params = list(signature(func).parameters.values())

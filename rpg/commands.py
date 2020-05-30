@@ -78,7 +78,8 @@ async def adventure(ctx):
     rpg_instance.save()
 
 
-@parser.command(help_text="equip an item (weapon/armor) from your inventory", usage_text="?equip item_name")
+@parser.command(help_text="equip an item (weapon/armor) from your inventory",
+                usage_text="?equip item_name")
 async def equip(ctx, *, item_name):
     if rpg_instance.equip(ctx.player, item_name):
         await ctx.send(f"Equipped `{item_name}`!")
@@ -92,7 +93,8 @@ async def areas(ctx):
     await ctx.send(rpg_instance.showareas())
 
 
-@parser.command(help_text="travel to a different RPG area", usage_text="?travel area_name")
+@parser.command(help_text="travel to a different RPG area",
+                usage_text="?travel area_name")
 async def travel(ctx, *, area_name):
     if area_name.upper() in (name.upper() for name in rpg_instance.areas):
         area = rpg_instance.areas[area_name]
@@ -105,7 +107,8 @@ async def travel(ctx, *, area_name):
         await ctx.send("Travel failed.")
 
 
-@parser.command(help_text="create an rpg item listing on the guild market", usage_text="?sell unit_price quantity item_name")
+@parser.command(help_text="create an rpg item listing on the guild market",
+                usage_text="?sell unit_price quantity item_name")
 async def sell(ctx, price, quantity, *, item_name):
     quant = int(quantity)
     unitprice = float(price)
@@ -122,4 +125,3 @@ async def sell(ctx, price, quantity, *, item_name):
         await ctx.send("Bad price")
     else:
         await ctx.send("You can't sell what you don't have!")
-
