@@ -88,7 +88,7 @@ cooldowns = {}
 #call this function before commands that usually get spammed
 async def check_cooldown(id, send_func):
     if id in cooldowns:
-        if cooldowns[id] + 2 > time.time():
+        if cooldowns[id] + 1 > time.time():
             await send_func("You're doing that too fast!")
             cooldowns[id] = time.time()
             return True
@@ -101,10 +101,6 @@ async def on_message(message):
     #ignore self
     if message.author.bot:
         return
-    
-    #ping command
-    elif message.content == "!ping":
-        await message.channel.send("pong!")
 
     #makes a Guild object for the server (serverowner only)
     elif message.content == "!registerserver" and message.author == message.guild.owner:
@@ -123,46 +119,6 @@ async def on_message(message):
     RPG COMMANDS
     """
     await rpg.on_message(message)
-
-    #shows a context menu for buying rpg items from the market
-    if message.content.startswith("?buy"):
-        g = server_registered(message.guild.id)
-        if message.content.startswith("?buy-"):
-            args = message.content.split("-")
-            if len(args) == 3:
-                name = args[1]
-                number = args[2]
-                if name in g.listings:
-                    player = rpginstance.fetchplayer(message.author.id, message.author.name)
-                    listing = g.listings[name][int(number)]
-                    if listing.author == player or player.gold >= listing.totalprice:
-                        if player.acquire(listing.item, listing.quantity):
-                            await message.channel.send(f"`{player.name} gained {listing.item.name}`\n")
-                            g.listings[name].remove(listing)
-                            if listing.author != player:
-                                #at this point, the transaction is successful, and between two different users
-                                salestax = (g.settings["salestax"] + 1) * listing.totalprice
-                                player.gold -= listing.totalprice + salestax
-                                g.bal += salestax
-                                listing.author.gold += listing.totalprice
-                            save_guilds(GUILDS)
-                        else:
-                            await message.channel.send("Your inventory isn't big enough!")
-                    else:
-                        await message.channel.send("You don't have the money for that!")
-        else: #without dashes, the command shows listings
-            name = message.content[5:]
-            output = "```\n--Listings--\n"
-            if g.settings["salestax"] != 0: output += "*Listings include sales tax*\n"
-            output += "\n"
-            if name in g.listings:
-                tax = g.settings["salestax"]
-                for i, listing in enumerate(g.listings[name]):
-                    output += f"{i}: {listing.show(tax)}"
-                output += f"```To buy a listing, do ?buy-{name}-#"
-                await message.channel.send(output)
-            else:
-                await message.channel.send("That's not for sale here!")
 
 
     """

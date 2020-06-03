@@ -219,11 +219,11 @@ class Guild():
         loop.run_until_complete(nextPhase(this))
 
     def addlisting(self, listing):
-        if listing.name in self.listings:
-            self.listings[listing.name].append(listing)
+        if listing.name.lower() in self.listings:
+            self.listings[listing.name.lower()].append(listing)
         else:
-            self.listings[listing.name] = [listing]
-        self.listings[listing.name].sort(key=lambda listing: listing.price)
+            self.listings[listing.name.lower()] = [listing]
+        self.listings[listing.name.lower()].sort(key=lambda listing: listing.price)
         listing.currency = self.currency
 
 

@@ -5,7 +5,7 @@ Handlers for the RPG commands.
 import guilds
 from main import check_cooldown, server_registered, GUILDS, save_guilds
 from . import rpg_instance
-from ..command_parser import CommandParser
+from command_parser import CommandParser
 
 parser = CommandParser("?")
 parser.add_custom_context("player", lambda ctx: rpg_instance.fetchplayer(ctx.user.id, ctx.user.name))
@@ -97,7 +97,7 @@ async def areas(ctx):
 @parser.command(help_text="travel to a different RPG area",
                 usage_text="?travel area_name")
 async def travel(ctx, *, area_name):
-    if area_name.upper() in (name.upper() for name in rpg_instance.areas):
+    if area_name.lower() in (name.lower() for name in rpg_instance.areas):
         area = rpg_instance.areas[area_name]
         if ctx.player.level >= area.requiredLevel:
             ctx.player.area = area
@@ -113,16 +113,61 @@ async def travel(ctx, *, area_name):
 async def sell(ctx, price, quantity, *, item_name):
     quant = int(quantity)
     unitprice = float(price)
-    if item_name.upper() in (item.upper() for item in ctx.player.inventory):
+    if item_name.lower() in (item.lower() for item in ctx.player.inventory):
         g = server_registered(ctx.message.guild.id)
         if ctx.player.inventory[item_name][1] >= quant:
             ctx.player.deacquire(rpg_instance.finditem(item_name), quant)
             g.addlisting(guilds.Listing(rpg_instance.finditem(item_name), quant, unitprice, ctx.player))
             await ctx.send("Listing posted.")
-            save_guilds(GUILDS)
+            #save_guilds(GUILDS)
         else:
             await ctx.send("You can't sell what you don't have!")
     elif unitprice < 0.00001 or unitprice > 99999999999:
         await ctx.send("Bad price")
     else:
         await ctx.send("You can't sell what you don't have!")
+
+
+#memory for which market a user was last browsing, used in ?buy
+market_browsing = {} #userid: itemname
+
+
+@parser.command(help_text="show listings for a specific rpg item",
+                usage_text="?market item_name")
+async def market(ctx, *, item_name):
+    g = server_registered(ctx.message.guild.id)
+    output = "```\n--Listings--\n"
+    if g.settings["salestax"] != 0: output += "*Listings include sales tax*\n"
+    output += "\n"
+    item_name = item_name.lower()
+    if item_name in g.listings:
+        tax = g.settings["salestax"]
+        for i, listing in enumerate(g.listings[item_name]):
+            output += f"{i}: {listing.show(tax)}"
+        output += f"```To buy a listing, do ?buy-#"
+        market_browsing[ctx.message.author.id] = item_name
+        await ctx.send(output)
+    else:
+        await ctx.send("That's not for sale here!")
+
+@parser.command(help_text="works in tandem with ?market")
+async def buy(ctx, number):
+    g = server_registered(ctx.message.guild.id)
+    name = market_browsing[ctx.message.author.id]
+    if name:
+        listing = g.listings[name][int(number)]
+        if listing.author == ctx.player or ctx.player.gold >= listing.totalprice:
+            if ctx.player.acquire(listing.item, listing.quantity):
+                await ctx.send(f"`{ctx.player.name} gained {listing.item.name}`\n")
+                g.listings[name].remove(listing)
+                if listing.author != ctx.player:
+                    #at this point, the transaction is successful, and between two different users
+                    salestax = (g.settings["salestax"] + 1) * listing.totalprice
+                    ctx.player.gold -= listing.totalprice + salestax
+                    g.bal += salestax
+                    listing.author.gold += listing.totalprice
+                #save_guilds(GUILDS)
+            else:
+                await ctx.send("Your inventory isn't big enough!")
+        else:
+            await ctx.send("You don't have the money for that!")
