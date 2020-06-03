@@ -1,6 +1,8 @@
+import pickle
 import random
-import numpy
 import time
+
+import numpy
 
 #planned additions
 
@@ -84,7 +86,7 @@ class Player:
         self.level = 1
         self.name = name
         self.weapon = None #stat: dmg
-        self.hat = None 
+        self.hat = None
         self.shirt = None
         self.pants = None
         self.shoes = None
@@ -141,7 +143,7 @@ class Player:
     def attack(self, other):
         #figure out how much damage to do
         output = ""
-        if self.weapon: 
+        if self.weapon:
             damage = self.weapon.dmg
             self.weapon.durability -= 1
             if self.weapon.durability == 0:
@@ -219,7 +221,7 @@ class Player:
     def heal(self, health):
         self.health += health
         if self.health > self.maxhealth:
-            self.health = self.maxhealth            
+            self.health = self.maxhealth
 
     """
     outputs player's gear in string format
@@ -259,7 +261,7 @@ class Player:
         output += f"##{'Item':>6} {'QT':>20}\n" + '-' * 29 + "\n"
         itemNum = 0
         for item in self.inventory:
-            output += f"{itemNum:>2}  {item:<15}{self.inventory[item][1]:>10}\n"
+            output += f"{itemNum:>2}  {self.inventory[item][0].name:<15}{self.inventory[item][1]:>10}\n"
             itemNum += 1
         return output
 
@@ -269,13 +271,13 @@ class Player:
     def acquire(self, item, quantity=1):
         if self.inventorySize >= len(self.inventory):
             if item.name in self.inventory:
-                self.inventory[item.name][1] += quantity
+                self.inventory[item.name.lower()][1] += quantity
             else:
-                self.inventory[item.name] = [item, quantity]
+                self.inventory[item.name.lower()] = [item, quantity]
             return True
         else:
             return False
-    
+
     def deacquire(self, item, quantity=1):
         if item.name in self.inventory:
             if self.inventory[item.name][1] > quantity:
@@ -354,7 +356,7 @@ class Area():
         #thank you stackoverflow
         s = sum(self.monsterfreq.values())
         d2 = {k: v/float(s) for k, v in self.monsterfreq.items()}
-        return numpy.random.choice(list(d2.keys()), p=list(d2.values()))
+        return numpy.random.choice(list(d2.keys()), p=list(d2.values())).lower()
 
 """
 conducts a battle between two fighters (monster / player) until either dies or time runs out
@@ -405,7 +407,7 @@ def load():
         for line in f.readlines():
             if not line[0] == "#":
                 spl = line.split('"')
-                weapons[spl[1]] = (Weapon(spl[1], spl[3], spl[5], spl[7], spl[9], spl[11], spl[13]))
+                weapons[spl[1].lower()] = (Weapon(spl[1], spl[3], spl[5], spl[7], spl[9], spl[11], spl[13]))
 
     #armor
     armor = {}
@@ -413,22 +415,22 @@ def load():
         for line in f.readlines():
             if not line[0] == "#":
                 spl = line.split('"')
-                armor[spl[1]] = (Armor(spl[1], spl[3], spl[5], spl[7], "hat"))
+                armor[spl[1].lower()] = (Armor(spl[1], spl[3], spl[5], spl[7], "hat"))
     with open("data/rpg/shirts.txt") as f:
         for line in f.readlines():
             if not line[0] == "#":
                 spl = line.split('"')
-                armor[spl[1]] = (Armor(spl[1], spl[3], spl[5], spl[7], "shirts"))
+                armor[spl[1].lower()] = (Armor(spl[1], spl[3], spl[5], spl[7], "shirts"))
     with open("data/rpg/pants.txt") as f:
         for line in f.readlines():
             if not line[0] == "#":
                 spl = line.split('"')
-                armor[spl[1]] = (Armor(spl[1], spl[3], spl[5], spl[7], "pants"))
+                armor[spl[1].lower()] = (Armor(spl[1], spl[3], spl[5], spl[7], "pants"))
     with open("data/rpg/shoes.txt") as f:
         for line in f.readlines():
             if not line[0] == "#":
                 spl = line.split('"')
-                armor[spl[1]] = (Armor(spl[1], spl[3], spl[5], spl[7], "shoes"))
+                armor[spl[1].lower()] = (Armor(spl[1], spl[3], spl[5], spl[7], "shoes"))
 
     #monsters
     monsters = {}
@@ -436,7 +438,7 @@ def load():
         for line in f.readlines():
             if not line[0] == '#':
                 spl = line.split('"')
-                monsters[spl[1]] = MonsterType(spl[1], spl[3], spl[5], spl[7], spl[9], spl[11], spl[13], spl[15], spl[17])
+                monsters[spl[1].lower()] = MonsterType(spl[1], spl[3], spl[5], spl[7], spl[9], spl[11], spl[13], spl[15], spl[17])
 
     #areas
     areas = {}
@@ -525,6 +527,7 @@ class GameInstance():
     finds an item object based on its name
     """
     def finditem(self, itemname):
+        itemname = itemname.lower()
         if itemname in self.weapons:
             return self.weapons[itemname]
         if itemname in self.armor:
@@ -544,6 +547,22 @@ class GameInstance():
             output += f"`{area}`: Level {self.areas[area].requiredLevel}\n"
         return output
 
-if __name__ == "__main__":
-    #load()
-    pass
+    def load(self):
+        """Attempt to load saved game state from a file."""
+        try:
+            with open("data/rpginstance.txt", "rb") as f:
+                r = pickle.load(f)
+                if r:
+                    self.players = r.players
+                    self.healthtime = r.healthtime
+        except Exception:
+            pass
+
+    def save(self):
+        """Save the game state to a file."""
+        with open("data/rpginstance.txt", "wb") as f:
+            pickle.dump(self, f, protocol=-1)
+
+
+rpg_instance = load()
+rpg_instance.load()

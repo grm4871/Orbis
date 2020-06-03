@@ -1,0 +1,5 @@
+# cached Python bytecode
+__pycache__/
+
+# PyCharm config
+.idea/
