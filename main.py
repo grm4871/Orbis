@@ -442,7 +442,7 @@ async def on_message(message):
                         g.current_pres = member.id
                         await message.channel.send("Your new president is: " + member.mention)
                     else:
-                        raise Exception("hi")
+                        raise Exception("no args")
                 except:
                     await message.channel.send("Usage: !setpresident member")
 

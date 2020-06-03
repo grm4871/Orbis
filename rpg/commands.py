@@ -5,7 +5,7 @@ Handlers for the RPG commands.
 import guilds
 from main import check_cooldown, server_registered, GUILDS, save_guilds
 from . import rpg_instance
-from .command_parser import CommandParser
+from ..command_parser import CommandParser
 
 parser = CommandParser("?")
 parser.add_custom_context("player", lambda ctx: rpg_instance.fetchplayer(ctx.user.id, ctx.user.name))
