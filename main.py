@@ -5,26 +5,11 @@ from datetime import datetime
 import asyncio
 import random
 import webcolors
-from guilds import Party
-from guilds import Guild
+from guilds import *
 import guilds
 import _pickle as pickle
 import rpg
 from rpg import rpg_instance as rpginstance
-
-#per-instance bot state
-GUILDS = []
-
-#helper functions
-"""
-gets a guild (object) by id
-"""
-def fetch_guild(id):
-    for guild in GUILDS:
-        if guild.server == id:
-            return guild
-    return None
-
 
 """
 checks if a member is in a guild (discord)
@@ -35,25 +20,6 @@ def member_exists(member, guild):
         return True
     except:
         return False
-
-"""
-checks if a server is a registered orbis guild
-"""
-def server_registered(id):
-    for guild in GUILDS:
-        if guild.server == id:
-            return guild
-    return False
-
-#save guilds
-def save_guilds(guilds):
-    with open("data/guilds.txt", "wb") as f:
-        pickle.dump(guilds, f, -1)
-
-#load guilds
-def load_guilds():
-    with open("data/guilds.txt", "rb") as f:
-        return pickle.load(f)
 
 #saves the rpg instance with pickle
 def save_rpg(rpginstance):
@@ -108,7 +74,7 @@ async def on_message(message):
             presrole = await message.guild.create_role(name="President",color=discord.Color.gold(),hoist=True)
             GUILDS.append(Guild(message.guild.id, electionChannel=message.channel.id, presidentRole=presrole.id))
             await message.channel.send("Guild registered!")
-            save_guilds(GUILDS)
+            save_guilds()
 
     #creates a guild object for servers that aren't meant to participate in the map game (upcoming)
     elif message.content.startswith("!registerservernonation"):
@@ -225,7 +191,7 @@ async def on_message(message):
                         await message.channel.send('Party created successfully')
                 else:
                     await message.channel.send("That party already exists!")
-            save_guilds(GUILDS)
+            save_guilds()
 
         #leaves your political party
         elif message.content.startswith('!leaveparty'):
@@ -245,9 +211,8 @@ async def on_message(message):
                     partyrole = guild.get_role(oldparty.role)
                     await partyrole.delete()
                     g.parties.remove(oldparty)
-
             await message.channel.send("Successfully left party")
-            save_guilds(GUILDS)
+            save_guilds()
 
         #join political party
         elif message.content.startswith('!joinparty'):
@@ -289,7 +254,7 @@ async def on_message(message):
                     await message.channel.send('Joined!')
                 else:
                     await message.channel.send('This party doesn\'t exist!')
-            save_guilds(GUILDS)
+            save_guilds()
 
 
         #adds you to the list of presidential candidates
@@ -301,7 +266,7 @@ async def on_message(message):
             if (not message.author.id in g.candidates) and inParty:
                 g.candidates.append(message.author.id)
                 await message.channel.send('You are now a candidate!')
-                save_guilds(GUILDS)
+                save_guilds()
             elif inParty == False:
                 await message.channel.send("Join a party first!")
             else:
@@ -339,13 +304,13 @@ async def on_message(message):
 
             #forces the election cycle to the next phase
             elif message.content.startswith('!forceelection'):
-                await guilds.nextPhase(g, client)
-                save_guilds(GUILDS)
+                await nextPhase(g, client)
+                save_guilds()
 
             #resets the guild's election cycle
             elif message.content.startswith('!resetelection'):
                 g.phase = 0
-                save_guilds(GUILDS)
+                save_guilds()
 
             #prints the current election state (pre-primary, primary, pre-general, general)
             elif message.content.startswith('!electionstate'):
@@ -356,7 +321,7 @@ async def on_message(message):
                 g.settings["autoelections"] = not g.settings["autoelections"]
                 if g.settings["autoelections"]: await message.channel.send("Automatic elections on!")
                 else: await message.channel.send("Automatic elections off!")
-                save_guilds(GUILDS)
+                save_guilds()
 
             #deletes a political party
             elif message.content.startswith('!deleteparty'):
@@ -439,8 +404,8 @@ async def clock():
         for guild in GUILDS:
             if datetime.now().hour > 19 and guild.settings["autoelections"]:
                 if days[guild.phase] == datetime.now().weekday():
-                    await guilds.nextPhase(guild, client)
-                    save_guilds(GUILDS)
+                    await nextPhase(guild, client)
+                    save_guilds()
         rpginstance.updatehealth()
         save_rpg(rpginstance)
 

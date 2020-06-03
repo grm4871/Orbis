@@ -3,6 +3,7 @@ Handlers for the RPG commands.
 """
 
 import guilds
+from guilds import save_guilds
 from main import check_cooldown, server_registered, GUILDS, save_guilds
 from . import rpg_instance
 from command_parser import CommandParser
@@ -119,7 +120,7 @@ async def sell(ctx, price, quantity, *, item_name):
             ctx.player.deacquire(rpg_instance.finditem(item_name), quant)
             g.addlisting(guilds.Listing(rpg_instance.finditem(item_name), quant, unitprice, ctx.player))
             await ctx.send("Listing posted.")
-            #save_guilds(GUILDS)
+            save_guilds()
         else:
             await ctx.send("You can't sell what you don't have!")
     elif unitprice < 0.00001 or unitprice > 99999999999:
@@ -129,8 +130,7 @@ async def sell(ctx, price, quantity, *, item_name):
 
 
 #memory for which market a user was last browsing, used in ?buy
-market_browsing = {} #userid: itemname
-
+market_browsing = {} #userid: itemname 
 
 @parser.command(help_text="show listings for a specific rpg item",
                 usage_text="?market item_name")
@@ -166,7 +166,7 @@ async def buy(ctx, number):
                     ctx.player.gold -= listing.totalprice + salestax
                     g.bal += salestax
                     listing.author.gold += listing.totalprice
-                #save_guilds(GUILDS)
+                save_guilds()
             else:
                 await ctx.send("Your inventory isn't big enough!")
         else:

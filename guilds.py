@@ -2,6 +2,38 @@ import discord
 import emoji
 import random
 
+GUILDS = []
+
+#helper functions
+"""
+gets a guild (object) by id
+"""
+def fetch_guild(id):
+    for guild in GUILDS:
+        if guild.server == id:
+            return guild
+    return None
+
+"""
+checks if a server is a registered orbis guild
+"""
+def server_registered(id):
+    for guild in GUILDS:
+        if guild.server == id:
+            return guild
+    return False
+
+#save guilds
+def save_guilds():
+    global GUILDS
+    with open("data/guilds.txt", "wb") as f:
+        pickle.dump(GUILDS, f, -1)
+
+#load guilds
+def load_guilds():
+    with open("data/guilds.txt", "rb") as f:
+        return pickle.load(f)
+
 #emoji library stuff
 emojis = []
 with open('emojis.txt', encoding='utf-8-sig') as f:
