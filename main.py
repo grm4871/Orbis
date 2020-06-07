@@ -5,14 +5,15 @@ from datetime import datetime
 import asyncio
 import random
 import webcolors
-from guilds import *
 import guilds
+from guilds import guilds_instance
 import _pickle as pickle
 import rpg
-from rpg import rpg_instance as rpginstance
+import general_commands
+from rpg import rpg_instance
 
 """
-checks if a member is in a guild (discord)
+checks if a member is in a (discord) guild
 """
 def member_exists(member, guild):
     try:
@@ -22,9 +23,9 @@ def member_exists(member, guild):
         return False
 
 #saves the rpg instance with pickle
-def save_rpg(rpginstance):
-    with open("data/rpginstance.txt", "wb") as f:
-        pickle.dump(rpginstance, f, -1)
+def save_rpg(rpg_instance):
+    with open("data/rpg_instance.txt", "wb") as f:
+        pickle.dump(rpg_instance, f, -1)
 
 def get_color(color_string):
     try:
@@ -38,28 +39,8 @@ def get_color(color_string):
         except:
             return False
 
-
-try:
-    GUILDS = load_guilds()
-except:
-    pass
-
 #run
 client = discord.Client()
-
-"""
-SPAM COOLDOWN TRACKER - user id keys, time.time() values
-"""
-cooldowns = {}
-#call this function before commands that usually get spammed
-async def check_cooldown(id, send_func):
-    if id in cooldowns:
-        if cooldowns[id] + 1 > time.time():
-            await send_func("You're doing that too fast!")
-            cooldowns[id] = time.time()
-            return True
-    cooldowns[id] = time.time()
-    return False
 
 #commands
 @client.event
@@ -70,15 +51,15 @@ async def on_message(message):
 
     #makes a Guild object for the server (serverowner only)
     elif message.content == "!registerserver" and message.author == message.guild.owner:
-        if(fetch_guild(message.guild.id) == None):
+        if(guilds_instance.fetch_guild(message.guild.id) == None):
             presrole = await message.guild.create_role(name="President",color=discord.Color.gold(),hoist=True)
-            GUILDS.append(Guild(message.guild.id, electionChannel=message.channel.id, presidentRole=presrole.id))
+            guilds_instance.guilds.append(guilds.Guild(message.guild.id, electionChannel=message.channel.id, presidentRole=presrole.id))
             await message.channel.send("Guild registered!")
-            save_guilds()
+            guilds_instance.save()
 
     #creates a guild object for servers that aren't meant to participate in the map game (upcoming)
     elif message.content.startswith("!registerservernonation"):
-        GUILDS.append(Guild(message.guild.id, nation=False))
+        guilds_instance.guilds.append(Guild(message.guild.id, nation=False))
         print("registered")
 
     """
@@ -90,10 +71,15 @@ async def on_message(message):
     """
     NATIONSERVER COMMANDS
     """
-    #check if server is a nation
-    if server_registered(message.guild.id):
-        g = server_registered(message.guild.id)
 
+
+    #check if server is a nation
+    if guilds_instance.fetch_guild(message.guild.id):
+        g = guilds_instance.fetch_guild(message.guild.id)
+
+        await guilds.on_message(message)
+
+        """
         #lists the guild's parties
         if message.content.startswith('!parties'):
             outputs = []
@@ -112,9 +98,10 @@ async def on_message(message):
                     await message.channel.send("There are no parties!")
                 else:
                     await message.channel.send(m)
+        """
 
         #lists the guild's candidates
-        elif message.content.startswith('!candidates'):
+        if message.content.startswith('!candidates'):
             outputs = []
             idx = 0
             num = 0
@@ -187,11 +174,11 @@ async def on_message(message):
                         role = await message.guild.create_role(name=args[1],color=discord.Color(int(color,16)),hoist=True)
                         await message.author.add_roles(role)
                         colorrgb = webcolors.hex_to_rgb("#" + color)
-                        g.parties.append(Party(args[1],(colorrgb[0],colorrgb[1],colorrgb[2]),[message.author.id],role.id,""))
+                        g.parties.append(guilds.Party(args[1],(colorrgb[0],colorrgb[1],colorrgb[2]),[message.author.id],role.id,""))
                         await message.channel.send('Party created successfully')
                 else:
                     await message.channel.send("That party already exists!")
-            save_guilds()
+            guilds_instance.save()
 
         #leaves your political party
         elif message.content.startswith('!leaveparty'):
@@ -212,7 +199,7 @@ async def on_message(message):
                     await partyrole.delete()
                     g.parties.remove(oldparty)
             await message.channel.send("Successfully left party")
-            save_guilds()
+            guilds_instance.save()
 
         #join political party
         elif message.content.startswith('!joinparty'):
@@ -254,7 +241,7 @@ async def on_message(message):
                     await message.channel.send('Joined!')
                 else:
                     await message.channel.send('This party doesn\'t exist!')
-            save_guilds()
+            guilds_instance.save()
 
 
         #adds you to the list of presidential candidates
@@ -266,7 +253,7 @@ async def on_message(message):
             if (not message.author.id in g.candidates) and inParty:
                 g.candidates.append(message.author.id)
                 await message.channel.send('You are now a candidate!')
-                save_guilds()
+                guilds_instance.save()
             elif inParty == False:
                 await message.channel.send("Join a party first!")
             else:
@@ -290,7 +277,15 @@ async def on_message(message):
         GUILD OWNER COMMANDS
         """
         if message.author.id == message.guild.owner.id:
-            g = server_registered(message.guild.id)
+            g = guilds_instance.fetch_guild(message.guild.id)
+
+            #delete all roles (very handy for bot testing)
+            if message.content.startswith('!deleteallroles'):
+                for role in message.guild.roles:
+                    try:
+                        await role.delete()
+                    except:
+                        pass
 
             #help command for guild owners
             if message.content.startswith('!ownerhelp'):
@@ -305,12 +300,12 @@ async def on_message(message):
             #forces the election cycle to the next phase
             elif message.content.startswith('!forceelection'):
                 await nextPhase(g, client)
-                save_guilds()
+                guilds_instance.save()
 
             #resets the guild's election cycle
             elif message.content.startswith('!resetelection'):
                 g.phase = 0
-                save_guilds()
+                guilds_instance.save()
 
             #prints the current election state (pre-primary, primary, pre-general, general)
             elif message.content.startswith('!electionstate'):
@@ -321,7 +316,7 @@ async def on_message(message):
                 g.settings["autoelections"] = not g.settings["autoelections"]
                 if g.settings["autoelections"]: await message.channel.send("Automatic elections on!")
                 else: await message.channel.send("Automatic elections off!")
-                save_guilds()
+                guilds_instance.save()
 
             #deletes a political party
             elif message.content.startswith('!deleteparty'):
@@ -396,21 +391,23 @@ async def on_ready():
     print(f'We have logged in as {client.user}')
 
 #clock that tests for election times and rpg events (elections: wednesday/saturday 8pm)
+"""
 days = {0:2,1:3,2:5,3:6}
 async def clock():
     await client.wait_until_ready()
     while(True):
         await asyncio.sleep(5)
-        for guild in GUILDS:
+        for guild in guilds_instance.guilds:
             if datetime.now().hour > 19 and guild.settings["autoelections"]:
                 if days[guild.phase] == datetime.now().weekday():
                     await nextPhase(guild, client)
-                    save_guilds()
-        rpginstance.updatehealth()
-        save_rpg(rpginstance)
+                    guilds_instance.save()
+        rpg_instance.updatehealth()
+        save_rpg(rpg_instance)
+"""
 
 #main function, just for threading stuff
 if __name__ == '__main__':
-    client.loop.create_task(clock())
+    #client.loop.create_task(clock())
     with open("data/token.txt") as f:
         client.run(f.read())

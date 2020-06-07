@@ -3,10 +3,10 @@ Handlers for the RPG commands.
 """
 
 import guilds
-from guilds import save_guilds
-from main import check_cooldown, server_registered, GUILDS, save_guilds
+from guilds import guilds_instance
 from . import rpg_instance
 from command_parser import CommandParser
+import time
 
 parser = CommandParser("?")
 parser.add_custom_context("player", lambda ctx: rpg_instance.fetchplayer(ctx.user.id, ctx.user.name))
@@ -21,6 +21,19 @@ async def help(ctx):
             response += "\n" + help_text
     await ctx.send(response)
 
+"""
+SPAM COOLDOWN TRACKER - user id keys, time.time() values
+"""
+cooldowns = {}
+#call this function before commands that usually get spammed
+async def check_cooldown(id, send_func):
+    if id in cooldowns:
+        if cooldowns[id] + 1 > time.time():
+            await send_func("You're doing that too fast!")
+            cooldowns[id] = time.time()
+            return True
+    cooldowns[id] = time.time()
+    return False
 
 def get_command_help(command):
     """Make the help text for a given command.
@@ -120,7 +133,7 @@ async def sell(ctx, price, quantity, *, item_name):
             ctx.player.deacquire(rpg_instance.finditem(item_name), quant)
             g.addlisting(guilds.Listing(rpg_instance.finditem(item_name), quant, unitprice, ctx.player))
             await ctx.send("Listing posted.")
-            save_guilds()
+            guilds_instance.save()
         else:
             await ctx.send("You can't sell what you don't have!")
     elif unitprice < 0.00001 or unitprice > 99999999999:
@@ -135,7 +148,7 @@ market_browsing = {} #userid: itemname
 @parser.command(help_text="show listings for a specific rpg item",
                 usage_text="?market item_name")
 async def market(ctx, *, item_name):
-    g = server_registered(ctx.message.guild.id)
+    g = guilds_instance.fetch_guild(ctx.message.guild.id)
     output = "```\n--Listings--\n"
     if g.settings["salestax"] != 0: output += "*Listings include sales tax*\n"
     output += "\n"
@@ -152,7 +165,7 @@ async def market(ctx, *, item_name):
 
 @parser.command(help_text="works in tandem with ?market")
 async def buy(ctx, number):
-    g = server_registered(ctx.message.guild.id)
+    g = guilds_instance.fetch_guild(ctx.message.guild.id)
     name = market_browsing[ctx.message.author.id]
     if name:
         listing = g.listings[name][int(number)]
@@ -166,7 +179,7 @@ async def buy(ctx, number):
                     ctx.player.gold -= listing.totalprice + salestax
                     g.bal += salestax
                     listing.author.gold += listing.totalprice
-                save_guilds()
+                guilds_instance.save()
             else:
                 await ctx.send("Your inventory isn't big enough!")
         else:
