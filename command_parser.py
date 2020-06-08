@@ -8,7 +8,6 @@ from typing import NamedTuple, Callable, Awaitable, List, Optional
 
 CommandHandler = Callable[..., Awaitable[None]]
 
-
 class Command(NamedTuple):
     """A registered command, including its handler and metadata."""
     handler_func: CommandHandler
@@ -191,3 +190,17 @@ class CommandParser:
             return func
 
         return decorator
+
+    def get_command_help(self, command):
+        """Sample function for making the help text for a given command.
+
+        :param rpg.command_parser.Command command: the command
+        :return: the help text, or ``None`` if this command has no help
+        :rtype: str|None
+        """
+        if command.help_text is None:
+            return None
+
+        text = ' or '.join(f"`{self.prefix}{a}`" for a in command.aliases)
+        text += ":  " + command.help_text
+        return text
