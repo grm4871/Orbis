@@ -16,7 +16,7 @@ parser.add_custom_context("player", lambda ctx: rpg_instance.fetchplayer(ctx.use
 async def help(ctx):
     response = "**Commands:**\n"
     for command in parser.commands:
-        help_text = get_command_help(command)
+        help_text = parser.get_command_help(command)
         if help_text is not None:
             response += "\n" + help_text
     await ctx.send(response)
@@ -34,21 +34,6 @@ async def check_cooldown(id, send_func):
             return True
     cooldowns[id] = time.time()
     return False
-
-def get_command_help(command):
-    """Make the help text for a given command.
-
-    :param rpg.command_parser.Command command: the command
-    :return: the help text, or ``None`` if this command has no help
-    :rtype: str|None
-    """
-    if command.help_text is None:
-        return None
-
-    text = ' or '.join(f"`{parser.prefix}{a}`" for a in command.aliases)
-    text += ":  " + command.help_text
-    return text
-
 
 @parser.command(aliases="i", help_text="show your inventory")
 async def inventory(ctx):

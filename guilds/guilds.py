@@ -3,7 +3,6 @@ import emoji
 import random
 import pickle
 
-
 class GuildsInstance:
     def __init__(self):
         self.guilds = []
@@ -49,8 +48,8 @@ Takes a guild and advances it to the next phase of its election.
 Horribly complicated and has a lot of issues. Rewriting is probably a good idea.
 I'd move this out of the main file but that seems to break it for some discord library reasons
 """
-async def nextPhase(g, client):
-    guild = client.get_guild(int(g.server))
+async def nextPhase(g, server):
+    guild = server
     channel = guild.get_channel(int(g.electionChannel))
 
     #primary
@@ -220,6 +219,7 @@ async def nextPhase(g, client):
 class Guild():
     def __init__(self, server, electionChannel=None, presidentRole=None, nation=True):
         if nation:
+            print('yes')
             self.server = int(server)
             self.parties = []
             self.current_pres = None
@@ -238,11 +238,8 @@ class Guild():
         self.color = None
         self.possessions = []
 
-
-    def nextPhase(self):
-        guild = client.get_guild(self.server)
-        channel = guild.get_channel(self.electionChannel)
-        loop.run_until_complete(nextPhase(this))
+    async def nextPhase(self, server):
+        await nextPhase(self, server)
 
     def addlisting(self, listing):
         if listing.name.lower() in self.listings:
